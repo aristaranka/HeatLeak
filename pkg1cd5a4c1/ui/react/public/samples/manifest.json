@@ -1,5 +1,14 @@
 [
   {
+    "file": "interior-ceiling-missing-insulation.jpg",
+    "title": "Living-room ceiling, missing insulation and a chandelier",
+    "buildingName": "Sample — Interior, living-room ceiling",
+    "buildingType": "Residential",
+    "credit": "Edward Louie, PNNL",
+    "license": "Courtesy of U.S. DOE Building America Solution Center",
+    "sourceUrl": "https://basc.pnnl.gov/diy-guides/look-missing-insulation-using-thermal-imaging"
+  },
+  {
     "file": "house-gable-windows.jpg",
     "title": "Detached house, gable end and dormers, winter evening",
     "buildingName": "Sample — Detached house, gable end",
@@ -7,15 +16,6 @@
     "credit": "BuLService",
     "license": "CC BY-SA 3.0",
     "sourceUrl": "https://commons.wikimedia.org/wiki/File:Thermografie_Giebelseite.jpg"
-  },
-  {
-    "file": "balcony-slab-thermal-bridge.jpg",
-    "title": "Apartment block, cantilevered balcony slab",
-    "buildingName": "Sample — Apartment block, balcony slab",
-    "buildingType": "Residential",
-    "credit": "Janrekoort",
-    "license": "CC BY-SA 4.0",
-    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Termopilt_n%C3%A4itab_soojuskadu.jpg"
   },
   {
     "file": "house-uninsulated-wall.jpg",
@@ -27,12 +27,30 @@
     "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ungedaemmte_Aussenwand.jpg"
   },
   {
-    "file": "passivhaus-vs-uninsulated.jpg",
-    "title": "Passive house beside a conventional building",
-    "buildingName": "Sample — Passive house and neighbour",
+    "file": "interior-exterior-door-seal.jpg",
+    "title": "Exterior door from inside, cold perimeter and threshold",
+    "buildingName": "Sample — Interior, entry door",
     "buildingType": "Residential",
-    "credit": "Passivhaus Institut",
-    "license": "CC BY-SA 3.0",
-    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Passivhaus_thermogram_gedaemmt_ungedaemmt.png"
+    "credit": "Edward Louie, PNNL",
+    "license": "Courtesy of U.S. DOE Building America Solution Center",
+    "sourceUrl": "https://basc.pnnl.gov/diy-guides/look-missing-insulation-using-thermal-imaging"
+  },
+  {
+    "file": "interior-window-sill-leak.jpg",
+    "title": "Single-hung window from inside, cold meeting rail and sill",
+    "buildingName": "Sample — Interior, window",
+    "buildingType": "Residential",
+    "credit": "Edward Louie, PNNL",
+    "license": "Courtesy of U.S. DOE Building America Solution Center",
+    "sourceUrl": "https://basc.pnnl.gov/diy-guides/look-missing-insulation-using-thermal-imaging"
+  },
+  {
+    "file": "balcony-slab-thermal-bridge.jpg",
+    "title": "Apartment block, cantilevered balcony slab",
+    "buildingName": "Sample — Apartment block, balcony slab",
+    "buildingType": "Residential",
+    "credit": "Janrekoort",
+    "license": "CC BY-SA 4.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Termopilt_n%C3%A4itab_soojuskadu.jpg"
   }
 ]
