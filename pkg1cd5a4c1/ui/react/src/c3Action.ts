@@ -47,7 +47,11 @@ export function getAppBaseUrl(): string {
  */
 const _doAxiosPost = async (url: string, payload: any): Promise<any> => {
   try {
-    const response: AxiosResponse = await axios.post(url, payload);
+    // The C3 REST API expects JSON; without this a string body goes out as text/plain
+    // and large payloads (base64 images) are mis-parsed server-side.
+    const response: AxiosResponse = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
     return response.data;
   } catch (error: any) {
     // Always throw an Error so callers' `e instanceof Error` checks surface the
