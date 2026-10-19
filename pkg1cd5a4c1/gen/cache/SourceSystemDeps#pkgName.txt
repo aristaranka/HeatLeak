@@ -1,0 +1,5 @@
+Canonical: platform
+genaifss: genaiPlatform
+SourceSystemTest: platform
+genaifss_2: genaiPlatform
+NewSourceSystemTest: platform

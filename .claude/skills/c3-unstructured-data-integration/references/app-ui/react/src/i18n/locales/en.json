@@ -1,0 +1,941 @@
+{
+  "common": {
+    "close": "Close",
+    "loading": "Loading",
+    "loadingEllipsis": "Loading…",
+    "modalBackdrop": "Modal backdrop",
+    "closeModal": "Close modal",
+    "toggleNavigationMenu": "Toggle navigation menu",
+    "closeNavigationMenu": "Close navigation menu",
+    "closeBanner": "Close banner",
+    "closeDropdown": "Close dropdown",
+    "moreInformation": "More Information",
+    "copy": "Copy",
+    "itemsPerPage": "items per page",
+    "rowsPerPage": "Rows per page",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
+    "selectAll": "Select all",
+    "rowActions": "Row actions",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "scrollToLatest": "Scroll to latest",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "rename": "Rename",
+    "delete": "Delete",
+    "download": "Download",
+    "refresh": "Refresh",
+    "filter": "Filter",
+    "all": "All",
+    "or": "or",
+    "workspace": "Workspace",
+    "addWorkspace": "Add Workspace",
+    "loadingWorkspace": "Loading workspace",
+    "srOnlyClose": "Close",
+    "htmlPreview": "HTML preview",
+    "closePreview": "Close preview",
+    "fileActions": "File actions",
+    "selectWorkspace": "Select workspace",
+    "clearWorkspaceSelection": "Clear workspace selection",
+    "selectWorkspaceToClone": "Select workspace to clone",
+    "cloningHint": "Cloning may take a few moments for large workspaces",
+    "theme": "Theme",
+    "themeSwitchLight": "Switch to light theme",
+    "themeSwitchDark": "Switch to dark theme",
+    "on": "On",
+    "off": "Off",
+    "select": "Select",
+    "removeFileAria": "Remove {{fileName}}",
+    "defaultConversationTitle": "conversation",
+    "confirmLoadingEllipsis": "…",
+    "confirm": "Confirm",
+    "newFolderAtRoot": "New folder at root",
+    "newFolderTitle": "New folder",
+    "publish": "Publish",
+    "clone": "Clone",
+    "editName": "Edit Name",
+    "deleteWorkflowDialogTitle": "Delete Workflow",
+    "visualization": "Visualization",
+    "loadingVisualization": "Loading visualization…",
+    "noVisualization": "No visualization available.",
+    "downloadCsv": "Download CSV",
+    "downloadCsvTitle": "Download as CSV",
+    "previousPageAria": "Previous page",
+    "nextPageAria": "Next page",
+    "rowsPerPageAria": "Rows per page",
+    "pagination": {
+      "itemsPerPageLabel": "items per page",
+      "itemRange": "{{start}} - {{end}} of {{total}} items"
+    },
+    "dataTable": {
+      "noResults": "No results.",
+      "pageOf": "Page {{current}} of {{total}}",
+      "rangeOfTotal": "{{start}}-{{end}} of {{total}}"
+    },
+    "dataGrid": {
+      "searchPlaceholder": "Search",
+      "emptyMessage": "No items found",
+      "selectRow": "Select row {{rowId}}",
+      "rowActionsAria": "Row actions"
+    }
+  },
+  "navigation": {
+    "search": "Search",
+    "data": "Data",
+    "history": "History",
+    "workflows": "Workflows",
+    "settings": "Settings",
+    "dataFusion": "Data Fusion",
+    "tooltipSearchRecords": "Search Records"
+  },
+  "emailEditor": {
+    "title": "Email",
+    "send": "Send",
+    "from": "From",
+    "fromPlaceholder": "Enter sender email",
+    "connectAccount": "Connect Account",
+    "selectAccount": "Select an account",
+    "connectGmail": "Connect Gmail account",
+    "connectOutlook": "Connect Outlook account",
+    "to": "To",
+    "cc": "Cc",
+    "bcc": "Bcc",
+    "subject": "Subject",
+    "bodyPlaceholder": "Compose your email...",
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "failed": "Failed"
+    },
+    "validation": {
+      "subjectRequired": "Subject is required",
+      "subjectTooLong": "Subject exceeds maximum length",
+      "fromRequired": "Sender email is required",
+      "fromInvalid": "Sender email is not valid",
+      "toRequired": "At least one recipient is required",
+      "toInvalid": "Invalid recipient email(s)",
+      "ccRequired": "CC recipient is required",
+      "ccInvalid": "Invalid CC email(s)",
+      "bccRequired": "BCC recipient is required",
+      "bccInvalid": "Invalid BCC email(s)"
+    },
+    "validationSummary": "Please fix the errors above before sending",
+    "confirm": {
+      "title": "Confirm Send Email",
+      "subject": "Subject",
+      "from": "From",
+      "to": "To",
+      "cc": "Cc",
+      "bcc": "Bcc",
+      "noValue": "(none)",
+      "more": "more",
+      "cancel": "Cancel",
+      "send": "Send"
+    }
+  },
+  "richTextEditor": {
+    "loading": "Loading editor...",
+    "placeholder": "Start typing...",
+    "variableHint": "Use {{variableName}} syntax to insert variables",
+    "toolbar": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "strikethrough": "Strikethrough",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "heading3": "Heading 3",
+      "paragraph": "Paragraph",
+      "bulletList": "Bullet list",
+      "orderedList": "Numbered list",
+      "alignLeft": "Align left",
+      "alignCenter": "Align center",
+      "alignRight": "Align right",
+      "link": "Insert link",
+      "table": "Insert table",
+      "insertTable": "Insert table",
+      "deleteTable": "Delete table",
+      "deleteTableTooltip": "Delete the entire table",
+      "addRow": "Add row",
+      "addRowTooltip": "Add a row below",
+      "deleteRow": "Delete row",
+      "deleteRowTooltip": "Delete the current row",
+      "addColumn": "Add column",
+      "addColumnTooltip": "Add a column to the right",
+      "deleteColumn": "Delete column",
+      "deleteColumnTooltip": "Delete the current column",
+      "undo": "Undo",
+      "redo": "Redo",
+      "aiBlock": "AI Block",
+      "insertAiBlock": "Insert AI Block"
+    },
+    "linkModal": {
+      "title": "Insert Link",
+      "placeholder": "Enter URL...",
+      "clearAriaLabel": "Clear URL",
+      "cancel": "Cancel",
+      "insert": "Insert",
+      "save": "Save",
+      "invalidUrl": "Please enter a valid URL"
+    },
+    "highlightTooltip": {
+      "reply": "Reply"
+    },
+    "aiBlock": {
+      "titlePlaceholder": "Enter AI block title...",
+      "deleteTitle": "Delete AI block"
+    }
+  },
+  "genaiFeed": {
+    "search": {
+      "placeholder": "Search...",
+      "submit": "Search",
+      "add": "Add",
+      "toggleFilterBar": "Toggle filter bar",
+      "clearConversation": "Clear conversation",
+      "selectAgent": "Select Agent",
+      "stopQuery": "Stop query",
+      "stoppingQuery": "Stopping query..."
+    },
+    "codeBlock": {
+      "error": "Error",
+      "sourceCode": "Source Code",
+      "copied": "Copied!",
+      "copyCode": "Copy code"
+    },
+    "answer": {
+      "copyAnswer": "Copy answer",
+      "aiDisclaimer": "AI Disclaimer",
+      "disclaimerText": "While we strive to provide accurate and reliable information, please be aware that this AI application is not infallible and may occasionally produce incorrect results or responses. The output generated by the application should be used as a reference or suggestion rather than definitive information. Users are encouraged to verify any critical information obtained through this application through additional sources or expert consultation."
+    },
+    "feedback": {
+      "questionPositive": "What was helpful?",
+      "questionNegative": "What went wrong?",
+      "ariaHelpful": "Mark as helpful",
+      "ariaNotHelpful": "Mark as not helpful",
+      "commentLabel": "Comment (optional)",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "thankYou": "Thank you for your feedback.",
+      "provideFeedbackTitle": "Provide Feedback",
+      "additionalCommentsOptional": "Additional comments (optional)",
+      "feedbackFormPlaceholder": "Enter your feedback..."
+    },
+    "tools": {
+      "label": "Tools"
+    },
+    "reasoning": {
+      "thoughtFor": "Thought for {{seconds}}s",
+      "thought": "Thought",
+      "complete": "Complete: {{status}}",
+      "processing": "Processing",
+      "interrupted": "Interrupted"
+    },
+    "result": {
+      "responseInterrupted": "Response was interrupted."
+    },
+    "step": {
+      "stepNumber": "Step {{number}}"
+    },
+    "sidePanel": {
+      "title": "C3 AI Assistant",
+      "closePanel": "Close panel",
+      "openAssistant": "Open AI Assistant",
+      "closeAssistant": "Close AI Assistant"
+    },
+    "workflowAgent": {
+      "searchPlaceholder": "What would you like to do or ask?"
+    },
+    "conversationSidePanel": {
+      "title": "Recent Conversations",
+      "newConversation": "New conversation",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "previousSevenDays": "Previous 7 days",
+      "previousThirtyDays": "Previous 30 days",
+      "olderThanThirtyDays": "Older",
+      "rename": "Rename",
+      "editConversation": "Edit {{title}}",
+      "delete": "Delete",
+      "conversationActionsMenu": "Conversation actions",
+      "deleteConfirmTitle": "Delete conversation?",
+      "deleteConfirmMessage": "This conversation will be permanently removed.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete"
+    },
+    "citation": {
+      "source": "Source"
+    },
+    "rag": {
+      "sourcesLabel": "Sources:",
+      "showMore": "Show {{count}} more",
+      "showLess": "Show less",
+      "aboutThisResult": "About this result",
+      "fileName": "File Name",
+      "fileType": "File Type",
+      "sourceType": "Source Type",
+      "excerpt": "Excerpt",
+      "viewSource": "View Source",
+      "sourceTypeText": "Text",
+      "sourceTypeTable": "Table",
+      "sourceTypeImage": "Image",
+      "sourceTypeUrl": "URL",
+      "sourceTypeUnknown": "Unknown",
+      "passageImageLoading": "Loading preview",
+      "passageImageError": "Could not load image preview"
+    },
+    "message": {
+      "copyMessage": "Copy message",
+      "errorRendering": "Error rendering message:"
+    },
+    "workflows": {
+      "schedule": {
+        "notScheduled": "Not scheduled",
+        "invalidSchedule": "Invalid schedule",
+        "customSchedule": "Custom schedule:",
+        "everySecond": "Every second",
+        "everyNSeconds": "Every %n% seconds",
+        "everyMinute": "Every minute",
+        "everyNMinutes": "Every %n% minutes",
+        "everyHour": "Every hour",
+        "everyNHours": "Every %n% hours"
+      },
+      "lastRun": {
+        "notRun": "Not run"
+      },
+      "listEmpty": {
+        "editorHelp": "Create a new workflow to get started.",
+        "viewerHelp": "You have viewer access. When workflows are shared with you, they will appear here."
+      },
+      "actions": {
+        "openWorkflow": "Open"
+      }
+    },
+    "resources": {
+      "richText": {
+        "edit": "Edit",
+        "save": "Save",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "saveSuccess": "Changes saved successfully",
+        "saveError": "Unable to save changes",
+        "export": "Export",
+        "exportHtml": "HTML",
+        "exportMarkdown": "Markdown",
+        "exportDocx": "Word (.docx)",
+        "exportText": "Plain text",
+        "placeholder": "Start typing...",
+        "maximize": "Maximize",
+        "minimize": "Minimize",
+        "openInCanvas": "Open in canvas",
+        "expandedView": "Content is displayed in expanded view",
+        "imageUploadError": "Failed to upload image"
+      },
+      "userInputForm": {
+        "description": "User input required",
+        "inputTypeLabel": "Input type",
+        "inputTypeTextOption": "Text",
+        "inputTypeFileOption": "File",
+        "userInputPlaceholder": "Enter your input...",
+        "chooseFileButtonText": "Choose file",
+        "chooseFileAriaLabel": "Choose file to upload",
+        "maxFilesAllowedAriaLabel": "Maximum files allowed",
+        "clearButtonText": "Clear",
+        "submitButtonText": "Submit",
+        "submittingText": "Submitting...",
+        "requiredFieldError": "This field is required",
+        "uploadFileError": "Failed to upload file",
+        "removeFileError": "Failed to remove file",
+        "submitError": "Failed to submit"
+      }
+    },
+    "canvas": {
+      "title": "Canvas View",
+      "exit": "Exit"
+    },
+    "htmlVisualization": {
+      "defaultIframeTitle": "Visualization"
+    }
+  },
+  "canvasChat": {
+    "agentTitle": "C3 AI Agent"
+  },
+  "canvasResource": {
+    "fileTitleFallback": "File",
+    "unknownType": "No renderer registered for resource type \"{{type}}\"."
+  },
+  "configurationDetail": {
+    "selectConfig": "Select a configuration to view details",
+    "detailTitle": "Configuration Detail",
+    "jsonConfiguration": "JSON Configuration",
+    "idLabel": "ID",
+    "typeLabel": "Type",
+    "invalidJson": "Invalid JSON",
+    "saveFailed": "Failed to save configuration",
+    "documentation": "Documentation",
+    "saving": "Saving..."
+  },
+  "configurations": {
+    "title": "Configurations",
+    "noTypes": "No configuration types found",
+    "instancesTitle": "Instances",
+    "noInstances": "No instances found"
+  },
+  "dataFusion": {
+    "title": "Data Fusion",
+    "comingSoon": "Data Fusion functionality coming soon"
+  },
+  "dataPage": {
+    "title": "Data"
+  },
+  "documents": {
+    "warningBanner": {
+      "regionAriaLabel": "Documents processing notice",
+      "messageOne": "1 document is unprocessed or needs re-processing.",
+      "messageMany": "{{count}} documents are unprocessed or need re-processing.",
+      "processAllOne": "Process it",
+      "processAllMany": "Process all {{count}}",
+      "starting": "Starting…",
+      "dismissAriaLabel": "Dismiss processing notice",
+      "indexError": "Could not start processing. Please try again.",
+      "indexNoFilesError": "No documents were queued for processing. Refresh the list and try again."
+    },
+    "dataPageHeader": {
+      "manageDocuments": "Manage Documents"
+    },
+    "actions": {
+      "removeFromIndex": "Unprocess files",
+      "removeFromIndexCount": "Unprocess {{count}}",
+      "removeFromIndexUnavailable": "None of the selected documents are processed",
+      "addToIndex": "Process files",
+      "addToIndexCount": "Process {{count}}",
+      "addToIndexUnavailable": "None of the selected documents can be processed",
+      "selectedCount": "{{count}} selected",
+      "selectAllMatching": "Select all {{count}} documents",
+      "allMatchingSelected": "All {{count}} documents selected",
+      "clearSelection": "Clear selection",
+      "refresh": "Refresh",
+      "uploadDocuments": "Upload documents"
+    },
+    "grid": {
+      "viewDocumentDetails": "View Document Details",
+      "viewDetailsAria": "View Document Details for {{name}}",
+      "deleteTitle": "Delete {{name}}",
+      "deleteAria": "Delete {{name}}",
+      "selectRow": "Select {{name}}",
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "sourceDirectory": "Source Directory",
+        "contentSize": "Content Size",
+        "lastUpdated": "Last Updated",
+        "tags": "Tags"
+      },
+      "filters": {
+        "status": "Status",
+        "sourceDirectory": "Source Directory",
+        "tag": "Tag"
+      },
+      "documentsTitle": "Documents",
+      "searchPlaceholder": "Search",
+      "emptyMessage": "No documents found",
+      "banner": {
+        "deleteSentSuccess": "The request to delete file has been successfully sent.",
+        "deleteError": "There was an error in deleting the file. Please try again.",
+        "deletionProcessingWarning": "Deletion is not possible while the file is being processed."
+      }
+    },
+    "upload": {
+      "title": "Upload Files",
+      "sourceDirectoryLabel": "Select External Source Directory For Files",
+      "duplicateTitle": "Duplicate Files Detected",
+      "duplicateSubtitle": "Some of the files you are uploading already exist in the selected collection.",
+      "autoUpdateIndex": "Automatically Update Processed Documents",
+      "tagsOptional": "Tags (Optional)",
+      "addTag": "Add Tag",
+      "addTagAria": "Add Tag",
+      "tagTypeLabel": "Tag Type",
+      "tagValueLabel": "Tag Value",
+      "tagTypePlaceholder": "Enter tag type",
+      "tagValuePlaceholder": "Enter tag value",
+      "uploading": "Uploading...",
+      "upload": "Upload",
+      "noResults": "No results found",
+      "defaultCollection": "Default collection",
+      "browse": "Browse",
+      "dragDropHint": "Drag and drop your updated file or browse",
+      "maxFileSize": "Max file size: 1GB",
+      "totalSizeLimit": "Total file size limit: 1024.0MB",
+      "tagsAddedSingular": "{{count}} tag added",
+      "tagsAddedPlural": "{{count}} tags added",
+      "removeTagTitle": "Remove tag",
+      "removeTagAria": "Remove tag {{tagValue}}",
+      "tagGroupAria": "Tag: {{tagValue}}, Category: {{category}}",
+      "tagGroupAriaNoCategory": "Tag: {{tagValue}}",
+      "selectPlaceholder": "Select",
+      "toggleOn": "On",
+      "toggleOff": "Off",
+      "filesTooLarge": "These files exceed the size limit and were not added: {{files}}",
+      "fileUnsupported": "Unsupported file type — will not be uploaded",
+      "fileEmpty": "File is empty — will not be uploaded"
+    },
+    "documentDetails": {
+      "titleWithFile": "File Details: {{fileName}}",
+      "loadError": "Could not load file details.",
+      "fieldLabels": {
+        "status": "STATUS",
+        "sourceDirectory": "SOURCE DIRECTORY",
+        "path": "PATH",
+        "sourceContentLastModified": "SOURCE CONTENT LAST MODIFIED",
+        "contentSize": "CONTENT SIZE",
+        "contentType": "CONTENT TYPE",
+        "lastSyncedBy": "LAST SYNCED BY",
+        "lastSyncedTime": "LAST SYNCED TIME",
+        "errorMessage": "ERROR MESSAGE"
+      }
+    },
+    "deleteDocument": {
+      "title": "Are you sure you want to delete the file(s)?",
+      "description": "Deleting the file will unprocess the file. Your file will be ignored in future syncs.",
+      "deleting": "Deleting..."
+    }
+  },
+  "dynamicVisualization": {
+    "loading": "Loading visualization…",
+    "noneAvailable": "No visualization available.",
+    "heading": "Visualization",
+    "loadFailed": "Failed to load visualization",
+    "viewGrid": "Grid",
+    "viewChart": "Chart",
+    "rowsPerPageLabel": "Rows per page:",
+    "rowsShowing": "Showing {{start}} to {{end}} of {{total}} rows"
+  },
+  "editableQuery": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit"
+  },
+  "executeSummary": {
+    "title": "Code Execution",
+    "codeTabTooltip": "Code",
+    "tracebackTabTooltip": "Traceback",
+    "outputTabTooltip": "Output"
+  },
+  "filterBar": {
+    "actions": {
+      "add": {
+        "label": "Add Document Filter",
+        "disabled": {
+          "tooltip": {
+            "maxFilters": "Maximum number of filters reached"
+          }
+        }
+      },
+      "clear": {
+        "label": "Clear"
+      },
+      "remove": {
+        "label": "Remove filter"
+      }
+    },
+    "filterType": {
+      "fileName": {
+        "label": "File Name"
+      },
+      "fileType": {
+        "label": "File Type"
+      },
+      "tags": {
+        "label": "Tags"
+      }
+    }
+  },
+  "filterInput": {
+    "header": {
+      "filtersAdded": "{{numFilters}}/{{maxNumFilters}} filters added"
+    },
+    "actions": {
+      "cancel": {
+        "label": "Cancel"
+      },
+      "addFilter": {
+        "label": "Add Filter"
+      },
+      "updateFilter": {
+        "label": "Update Filter"
+      },
+      "typeOrSelect": {
+        "label": "Type or select values"
+      },
+      "toggleOptions": {
+        "label": "Toggle options"
+      }
+    },
+    "date": {
+      "startDate": {
+        "placeholder": "Start Date"
+      },
+      "endDate": {
+        "placeholder": "End Date"
+      },
+      "dateInterval": {
+        "value": "{{startDate}} - {{endDate}}"
+      },
+      "afterDate": {
+        "value": "After {{startDate}}"
+      },
+      "beforeDate": {
+        "value": "Before {{endDate}}"
+      }
+    },
+    "options": {
+      "emptyState": {
+        "label": "No results found."
+      }
+    }
+  },
+  "genericAgent": {
+    "workflowAgentTitle": "C3 AI Workflow Agent",
+    "loadingConversation": "Loading conversation..."
+  },
+  "historyPage": {
+    "title": "History",
+    "latencySeconds": "{{seconds}}s",
+    "status": {
+      "successful": "Successful",
+      "failed": "Failed",
+      "inProgress": "In Progress",
+      "returnedIdk": "Returned IDK"
+    },
+    "agentToolUnstructured": "Unstructured",
+    "columns": {
+      "query": "Query",
+      "answer": "Answer",
+      "queryStatus": "Query Status",
+      "avgResponseTime": "Avg. Response Time",
+      "thumbsUp": "Thumbs up",
+      "thumbsDown": "Thumbs down",
+      "agentToolUsed": "Agent/Tool Used",
+      "user": "User",
+      "timestamp": "Timestamp"
+    }
+  },
+  "promptDetail": {
+    "selectPrompt": "Select a prompt to view details",
+    "templateHeading": "Prompt Template",
+    "createPrompt": "Create Prompt"
+  },
+  "prompts": {
+    "title": "Prompts",
+    "empty": "No prompts found"
+  },
+  "queryDetail": {
+    "historyTitle": "History",
+    "conversationDetail": "Conversation Detail",
+    "queryDetailNav": "Query Detail",
+    "avgResponseTime": "Avg response time",
+    "user": "User",
+    "agentExecutionTime": "Agent Execution Time",
+    "status": "Status",
+    "feedback": "Feedback",
+    "userInput": "User Input",
+    "engineLog": "Engine Log",
+    "modelOutput": "Model Output",
+    "rawQuery": "Raw Query",
+    "rewrittenQuery": "Rewritten Query",
+    "queryType": "Query Type",
+    "downloadEngineLog": "Download engine log",
+    "answer": "Answer",
+    "agentExecutionSeconds": "{{seconds}} seconds",
+    "engineLogStatusErrorAria": "Error status for {{field}} section",
+    "engineLogStatusSuccessAria": "Success status for {{field}} section",
+    "toggleSectionAria": "{{action}} {{field}} section"
+  },
+  "restartBanner": {
+    "title": "Restart Search Engine",
+    "pleaseRestart": "Please Restart",
+    "inlineDescription": "The search engine needs to be restarted. Once you are done making changes to configurations, please click the restart button.",
+    "restartInline": "↻ Restart",
+    "confirmMessage": "Restarting the search engine will also stop all background tasks, including processing documents. Are you sure you want to restart the search engine?",
+    "restarting": "Restarting...",
+    "restart": "Restart"
+  },
+  "settings": {
+    "appTitle": "C3 Generative AI",
+    "tabConfigurations": "Configurations",
+    "tabPrompts": "Prompts",
+    "dismiss": "Dismiss",
+    "errors": {
+      "loadConfigTypes": "Failed to load configuration types",
+      "loadInstances": "Failed to load instances",
+      "loadConfigDetail": "Failed to load configuration detail",
+      "loadPrompts": "Failed to load prompts",
+      "loadPromptTemplate": "Failed to load prompt template"
+    }
+  },
+  "tagPill": {
+    "userLastUpdated": "User last updated",
+    "timeLastUpdated": "Time last updated",
+    "editTag": "Edit tag",
+    "removeTag": "Remove tag",
+    "editTagTitle": "Edit Tag",
+    "removeTagTitle": "Remove Tag",
+    "tagValueLabel": "Tag value",
+    "renameDescription": "Rename Tag Value \"{{value}}\" for Tag Type \"{{category}}\"",
+    "validationMustDiffer": "Enter a new tag value that differs from the current one.",
+    "bannerUpdated": "Tag updated.",
+    "bannerRemoved": "Tag removed.",
+    "errorUpdate": "Could not update tag. Try again.",
+    "errorRemove": "Could not remove tag. Try again.",
+    "removeConfirm": "Are you sure you'd like to remove {{path}}?",
+    "saveChangesButton": "Save changes",
+    "updatedBySystem": "System",
+    "tagTypeFallback": "Tag",
+    "unknownCategoryPlaceholder": "—"
+  },
+  "tagsAdditionModal": {
+    "title": "Add Tag",
+    "closeAriaLabel": "Close",
+    "noDocumentIdMessage": "This row has no document id, so tags cannot be added.",
+    "categoryLabel": "Enter Category",
+    "tagValueLabel": "Enter Tag Value",
+    "categoryOptionLoading": "Loading categories...",
+    "categoryOptionSelect": "Select category...",
+    "tagValuePlaceholder": "Enter tag value...",
+    "metadataHint": "If a tag type is selected, the manually provided tag value will be used for improving automated metadata extraction.",
+    "cancel": "Cancel",
+    "addTag": "Add Tag",
+    "adding": "Adding…",
+    "categoriesLoadError": "Could not load categories. Try again.",
+    "bannerTagAdded": "Tag added.",
+    "bannerRefreshWarning": "Tag was added, but the view could not be refreshed. Reload the page if the tag does not appear.",
+    "bannerAddError": "Could not add tag. Try again."
+  },
+  "tagsCell": {
+    "noTagsAvailable": "No tags available.",
+    "addTag": "Add tag",
+    "modalTitle": "Tags for file: {{fileName}}",
+    "documentFallback": "Document",
+    "tagsCategoryFallback": "Tags"
+  },
+  "workflowAgentSidePanel": {
+    "clearConversation": "Clear conversation"
+  },
+  "workflowsPage": {
+    "nodeModal": {
+      "configuration": "Configuration",
+      "template": "Template",
+      "kind": "Kind",
+      "agentName": "Agent Name",
+      "category": "Category",
+      "variables": "Variables",
+      "input": "Input",
+      "output": "Output",
+      "addNew": "Add New",
+      "none": "None",
+      "searchPlaceholder": "Search by name...",
+      "variableName": "Name",
+      "type": "Type",
+      "description": "Description",
+      "parameters": "Parameters",
+      "noLLMConfig": "No LLM configuration values available",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "restore": "Restore",
+      "maximize": "Maximize",
+      "close": "Close",
+      "savingNodeChanges": "Saving node changes...",
+      "failedSaveVariable": "Failed to save variable. Please try again.",
+      "failedRemoveVariable": "Failed to remove variable. Please try again.",
+      "failedSaveChanges": "Failed to save node changes. Please try again.",
+      "variableSaved": "Variable saved successfully.",
+      "variableRemoved": "Variable removed successfully.",
+      "changesSaved": "Node changes saved successfully.",
+      "noChanges": "No changes to save",
+      "unsavedRowsWarning": "Please confirm or cancel all editing rows before saving.",
+      "missingRequiredFields": "Please fill in both name and type fields.",
+      "failedToggleOutput": "Failed to update node setting",
+      "loadingResource": "Loading resource...",
+      "failedLoadResource": "Failed to load resource content. Please try again.",
+      "noMatchingTypes": "No matching types"
+    },
+    "scheduleDrawer": {
+      "header": "Schedule Workflow",
+      "intervalLabel": "Run every",
+      "intervalPlaceholder": "30",
+      "timeUnitLabel": "Time unit",
+      "timeUnit": {
+        "seconds": "Seconds",
+        "minutes": "Minutes",
+        "hours": "Hours",
+        "days": "Days"
+      },
+      "subtypeLabel": "Choose a Type for the START node",
+      "schedule": "Schedule",
+      "unschedule": "Unschedule",
+      "saving": "Saving...",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "close": "Close",
+      "scheduleDisabledReason": "Workflow must be published before it can be scheduled",
+      "unscheduleDisabledReason": "Workflow must be published before it can be Unscheduled",
+      "errorScheduleFailed": "Failed to schedule workflow",
+      "errorUnscheduleFailed": "Failed to unschedule workflow",
+      "cannotScheduleUserInput": "This workflow cannot be scheduled because it contains user input nodes"
+    },
+    "validation": {
+      "issues": "Issues",
+      "validate": "Validate",
+      "validateWorkflow": "Validate Workflow",
+      "workflowIssues": "Workflow Issues",
+      "closeIssues": "Close issues",
+      "noIssues": "No issues found",
+      "validationComplete": "Validation complete",
+      "validationError": "Failed to validate workflow"
+    },
+    "nodeIssues": {
+      "issuesFound": "{{count}} issue(s) found - click to view",
+      "viewIssues": "View {{count}} issue(s) for {{nodeName}}",
+      "nodeIssuesHeader": "Node Issues ({{count}})",
+      "closeIssuesPopup": "Close issues popup"
+    },
+    "hideOutput": {
+      "showOutput": "Show output in execution",
+      "hideOutput": "Hide output in execution",
+      "outputHiddenClickToShow": "Output hidden in execution - click to show",
+      "clickToHide": "Click to hide output in execution"
+    },
+    "workflowModal": {
+      "createTitle": "Create New Workflow",
+      "editTitle": "Edit Workflow",
+      "createAction": "Create",
+      "updateAction": "Update",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "namePlaceholder": "Enter workflow name",
+      "descriptionPlaceholder": "Enter workflow description (optional)"
+    },
+    "workflowDetail": {
+      "loadingWorkflow": "Loading workflow...",
+      "notFound": "Workflow not found",
+      "errorWithDetails": "Error: {{message}}",
+      "workflowDetailsTab": "Workflow Details",
+      "executionsTab": "Executions",
+      "exit": "Exit",
+      "run": "Run",
+      "runFailed": "Failed to run workflow",
+      "loadFailed": "Failed to load workflow",
+      "runNotAvailableTooltip": "You have workflow viewer access; Run is not available."
+    },
+    "workflowCanvas": {
+      "loadingWorkflow": "Loading workflow..."
+    },
+    "execution": {
+      "executing": "Workflow executing...",
+      "runHistory": "Run History",
+      "loadingExecutions": "Loading executions...",
+      "noExecutions": "No executions found",
+      "uploadHint": "Upload a file or select existing",
+      "outputLoading": "Loading execution output...",
+      "expandOutputAria": "Expand output",
+      "collapseOutputAria": "Collapse output",
+      "unknownTask": "Unknown Task",
+      "genericError": "An error occurred during workflow execution",
+      "errorDetails": "Error Details",
+      "statusRunning": "Running",
+      "statusInterrupted": "Interrupted",
+      "statusCompleted": "Completed",
+      "statusError": "Error",
+      "failedLoadExecutions": "Failed to load workflow executions",
+      "failedExecuteWorkflow": "Failed to execute workflow",
+      "workflowInputsRequired": "Workflow Inputs Required",
+      "formTitleMixed": "Please enter inputs and select from existing {{typeList}} {{instanceLabel}} to continue",
+      "formTitleC3Only": "Please select from existing {{typeList}} {{instanceLabel}} to continue",
+      "formTitleTextOnly": "Please enter the input to continue",
+      "instanceSingular": "instance",
+      "instancePlural": "instances",
+      "uploadFile": "Upload File",
+      "fileReady": "Ready",
+      "fileUploadError": "Error",
+      "orDivider": "or",
+      "selectInputPlaceholder": "Select {{inputName}}...",
+      "selectExistingFile": "Select existing file...",
+      "enterInputPlaceholder": "Enter {{inputName}}...",
+      "submittingRunning": "Running...",
+      "runWorkflow": "Run Workflow",
+      "noOutputForRun": "No execution output available for this run.",
+      "selectRunForOutput": "Select a run from the history to view its output.",
+      "executionIdNotFound": "Workflow execution ID not found",
+      "fileIdPrefix": "ID:"
+    },
+    "executionFilter": {
+      "filterExecutions": "Filter workflow executions",
+      "filterTitle": "Filter",
+      "clear": "Clear",
+      "apply": "Apply",
+      "status": "Status",
+      "executionTime": "Execution Time",
+      "start": "Start",
+      "end": "End"
+    },
+    "nodeTemplates": {
+      "sectionDescription": "Example workflow descriptions",
+      "noExamples": "No examples available",
+      "heading": "Node Templates & Examples",
+      "templatesTab": "Node Templates",
+      "examplesTab": "Examples",
+      "expandPanelAria": "Expand panel",
+      "collapsePanelAria": "Collapse panel"
+    },
+    "list": {
+      "title": "Workflows",
+      "createNew": "Create new",
+      "noWorkflowsFound": "No workflows found",
+      "columns": {
+        "name": "Name",
+        "description": "Description",
+        "owner": "Owner",
+        "status": "Status",
+        "schedule": "Schedule",
+        "lastRun": "Last Run",
+        "interrupt": "Interrupt",
+        "actions": "Actions"
+      },
+      "ownerUnknown": "Unknown",
+      "statusPublished": "Published",
+      "statusUnpublished": "Unpublished",
+      "nameRequired": "Workflow name cannot be empty",
+      "errors": {
+        "publishFailed": "Failed to publish workflow",
+        "cloneFailed": "Failed to clone workflow",
+        "updateFailed": "Failed to update workflow",
+        "deleteFailed": "Failed to delete workflow",
+        "createFailed": "Failed to create workflow"
+      },
+      "deleteConfirmMessage": "Are you sure you want to delete workflow \"{{name}}\"?"
+    }
+  },
+  "workspaceTree": {
+    "folderNamePlaceholder": "Folder name",
+    "failedLoad": "Failed to load workspace.",
+    "emptyWorkspace": "This workspace is empty.",
+    "failedParseNotebook": "Failed to parse notebook.",
+    "notebookNoCells": "Notebook has no cells.",
+    "previewNotAvailable": "Preview not available for this file type.",
+    "noContentToDisplay": "No content to display.",
+    "download": "Download",
+    "newFolder": "New Folder",
+    "rename": "Rename",
+    "delete": "Delete",
+    "createDirFailed": "Failed to create directory",
+    "previewLoadFailed": "Could not load file.",
+    "previewDialogAria": "Preview: {{fileName}}",
+    "pdfPreviewTitle": "PDF preview: {{fileName}}",
+    "openFileLink": "Open {{fileName}}"
+  }
+}

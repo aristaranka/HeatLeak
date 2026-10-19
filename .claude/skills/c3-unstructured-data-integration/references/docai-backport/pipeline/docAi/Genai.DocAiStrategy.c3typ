@@ -1,0 +1,56 @@
+/*
+ * Copyright 2009-2026 C3 AI (www.c3.ai). All Rights Reserved.
+ * Confidential and Proprietary C3 Materials.
+ * This material, including without limitation any software, is the confidential trade secret and proprietary
+ * information of C3 and its licensors. Reproduction, use and/or distribution of this material in any form is
+ * strictly prohibited except as set forth in a written license agreement with C3 and/or its authorized distributors.
+ * This material may be covered by one or more patents or pending patent applications.
+ */
+
+/**
+ * An immutable, versioned Doc AI strategy: either an app-owned Python function or a named OOTB strategy
+ * resolved by the microservice. Once created, a strategy row cannot be updated — a new script is a new row,
+ * keeping executed code stable and auditable while {@link Genai.DocAiPipeline} (mutable) is free to repoint
+ * at a different strategy at any time.
+ *
+ * Exactly one of the three source fields must be set:
+ * <ul>
+ *   <li>{@link #scriptRef} — app-owned Python source stored as a resource file.</li>
+ *   <li>{@link #pySrcString} — app-owned Python source stored inline.</li>
+ *   <li>{@link #ootbName} — name of a built-in strategy resolved entirely by the Doc AI microservice.</li>
+ * </ul>
+ */
+@db(createOnly=true)
+entity type Genai.DocAiStrategy mixes SeedData, WithName {
+
+  /**
+   * Reference to a Python strategy script file (e.g. `meta://<pkg>/resource/docaiStrategies/my_strategy.py`).
+   * The file must define a top-level `process_document(document, settings)` function.
+   * Mutually exclusive with {@link #pySrcString} and {@link #ootbName}.
+   */
+  scriptRef: File
+
+  /**
+   * Inline Python source defining `process_document(document, settings)`.
+   * Mutually exclusive with {@link #scriptRef} and {@link #ootbName}.
+   */
+  pySrcString: string
+
+  /**
+   * Name of a built-in strategy resolved by the Doc AI microservice (e.g. {@code passage_level}).
+   * Mutually exclusive with {@link #scriptRef} and {@link #pySrcString}.
+   */
+  ootbName: string
+
+  /**
+   * For app-owned strategies ({@link #scriptRef} or {@link #pySrcString}): resolves and returns the Python
+   * source. Throws for OOTB strategies — callers must check {@link #ootbName} first.
+   */
+  scriptSource: member function(): !string js-rhino
+
+  /**
+   * Enforces the exactly-one-source invariant. Because the type is {@code @db(createOnly=true)}, a bad row
+   * can never be corrected once persisted, so we reject it at creation time rather than at execution time.
+   */
+  beforeCreate: ~ js-rhino
+}

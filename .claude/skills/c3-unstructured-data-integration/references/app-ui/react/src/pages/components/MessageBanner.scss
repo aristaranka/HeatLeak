@@ -1,0 +1,122 @@
+/*
+ * Copyright 2009-2026 C3 AI (www.c3.ai). All Rights Reserved.
+ * Confidential and Proprietary C3 Materials.
+ * This material, including without limitation any software, is the confidential trade secret and proprietary
+ * information of C3 and its licensors. Reproduction, use and/or distribution of this material in any form is
+ * strictly prohibited except as set forth in a written license agreement with C3 and/or its authorized distributors.
+ * This material may be covered by one or more patents or pending patent applications.
+ */
+
+.message-banner {
+  width: 100%;
+  font-size: var(--c3-style-font-size-03);
+  line-height: var(--c3-style-line-height-md);
+  padding: var(--c3-style-space-04) var(--c3-style-space-05);
+  margin-bottom: var(--c3-style-space-05);
+  display: flex;
+  align-items: center;
+  position: relative;
+  box-shadow: var(--c3-style-box-shadow-light-01);
+  animation: slideDown 0.3s ease-out;
+  background-color: var(--c3-style-pageBackgroundColor);
+  border-radius: var(--c3-style-border-radius-sm);
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--c3-style-border-width-md);
+    background-color: var(--banner-accent-color);
+    border-radius: var(--c3-style-border-radius-sm) 0 0 var(--c3-style-border-radius-sm);
+  }
+
+  .message-banner-content {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--c3-style-space-04);
+  }
+
+  .message-banner-left {
+    display: flex;
+    align-items: center;
+    gap: var(--c3-style-space-04);
+    flex: 1;
+  }
+
+  .message-banner-icon {
+    width: var(--c3-style-size-07);
+    height: var(--c3-style-size-07);
+    border-radius: var(--c3-style-border-radius-circle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.75em;
+    background-color: var(--banner-accent-color);
+
+    svg {
+      color: var(--c3-style-color-core-white);
+    }
+  }
+
+  .message-banner-text {
+    flex: 1;
+    word-wrap: break-word;
+    color: var(--c3-style-colorFgPrimary);
+  }
+
+  .message-banner-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--c3-style-space-01);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: var(--c3-style-border-radius-xs);
+    transition: background-color 0.2s ease;
+    color: var(--c3-style-colorFgPrimary);
+
+    &:hover {
+      background-color: var(--c3-style-colorBgSecondary);
+    }
+
+    &:active {
+      background-color: var(--c3-style-colorBgTertiary);
+    }
+
+    svg {
+      font-size: 0.9em;
+      color: var(--c3-style-colorFgPrimary);
+    }
+  }
+
+  // Type-specific accent colors
+  &.message-banner-error {
+    --banner-accent-color: var(--c3-style-colorBorderDanger);
+  }
+
+  &.message-banner-warning {
+    --banner-accent-color: var(--c3-style-colorBorderWarning);
+  }
+
+  &.message-banner-success {
+    --banner-accent-color: var(--c3-style-colorBorderSuccess);
+  }
+}

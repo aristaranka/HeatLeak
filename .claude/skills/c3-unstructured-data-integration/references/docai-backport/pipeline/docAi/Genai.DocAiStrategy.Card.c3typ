@@ -1,0 +1,45 @@
+/*
+ * Copyright 2009-2026 C3 AI (www.c3.ai). All Rights Reserved.
+ * Confidential and Proprietary C3 Materials.
+ * This material, including without limitation any software, is the confidential trade secret and proprietary
+ * information of C3 and its licensors. Reproduction, use and/or distribution of this material in any form is
+ * strictly prohibited except as set forth in a written license agreement with C3 and/or its authorized distributors.
+ * This material may be covered by one or more patents or pending patent applications.
+ */
+
+/**
+ * Mutable presentation metadata for a {@link Genai.DocAiStrategy}. The strategy itself is
+ * {@code @db(createOnly=true)} so its executed source stays immutable and auditable; this companion card
+ * holds the human-facing {@link #description} and {@link #mermaidDiagram}, which are freely editable via a
+ * plain {@code merge}/{@code update} — no field-level mutability callback on the strategy is required. This
+ * mirrors the platform precedent of an immutable core plus a separate mutable card
+ * ({@code MlModel} ↔ {@code ModelRegistryService.Record.Card}, {@code Mcp.InstructionSet} ↔ {@code Mcp.AgentInstructionSet}).
+ *
+ * There is exactly one card per strategy (unique on {@link #strategy}). Both {@link #description} and
+ * {@link #mermaidDiagram} are agent-drafted at creation time and human-reviewed/edited thereafter — they are
+ * a maintained visual/summary for display, not an automatically-synced representation of the strategy source.
+ */
+@db(unique=['strategy'])
+@seed(userUpdatable=true)
+entity type Genai.DocAiStrategy.Card mixes SeedData {
+
+  /**
+   * The immutable strategy this card describes. The field is {@code @db(createOnly=true)} so a card can never
+   * be repointed at a different strategy once persisted (mirrors {@code ModelRegistryService.Record.Card.uri}).
+   */
+  @db(createOnly=true)
+  strategy: !Genai.DocAiStrategy
+
+  /**
+   * Human-readable description of what the strategy does. Agent-drafted at creation and human-editable
+   * afterwards; for display only — it is not a verified or auto-synced derivation of the strategy source.
+   */
+  description: string
+
+  /**
+   * Mermaid source rendered by the UI to visualize the strategy's pipeline. Agent-drafted at creation and
+   * human-editable afterwards; for complex branching strategies this is a summarization, so it is a
+   * human-maintained visual, not an automatically-verified representation of the strategy source.
+   */
+  mermaidDiagram: string
+}

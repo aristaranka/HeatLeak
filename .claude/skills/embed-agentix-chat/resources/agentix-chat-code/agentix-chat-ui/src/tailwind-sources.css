@@ -1,0 +1,24 @@
+/*
+ * Copyright 2009-2026 C3 AI (www.c3.ai). All Rights Reserved.
+ * Confidential and Proprietary C3 Materials.
+ * This material, including without limitation any software, is the confidential trade secret and proprietary
+ * information of C3 and its licensors. Reproduction, use and/or distribution of this material in any form is
+ * strictly prohibited except as set forth in a written license agreement with C3 and/or its authorized distributors.
+ * This material may be covered by one or more patents or pending patent applications.
+ */
+
+/*
+ * Host SPAs and embedding apps that mount `@c3/agentix-client-ui` must import this file from their
+ * Tailwind entry CSS. Paths here are relative to THIS file, so the scanner registers the chat
+ * cluster even though the package is reached through a `node_modules` symlink (which Tailwind
+ * skips by default). Without this, chat utilities are missing from the production CSS.
+ *
+ * This one registration is now sufficient: the presentation layer (`components/ui/*` primitives,
+ * shared chrome like ConfirmModal / AgentIcons / Pagination, and the `cn` helper) lives in this
+ * package, so a consumer never has to register the Nexus host tree. Registering only its own
+ * files plus this entry used to drop every host-exclusive utility — the MCP consent Dialog then
+ * portalled into <body> with no overlay, no width clamp and no open-state transform, i.e. it
+ * mounted but was invisible, presenting as "chat won't start" with a perfectly healthy backend.
+ */
+@source './**/*.tsx';
+@source './**/*.ts';

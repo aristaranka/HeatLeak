@@ -1,0 +1,7 @@
+One hypothetical remediation scenario in HeatLeak AI's Energy Impact Simulator.
+A RepairScenario captures a user's cost/savings assumptions for a candidate
+intervention (weatherstripping, seal replacement, insulation work, …) so several
+options can be compared side by side. The derived economics come from
+RepairScenario#evaluate.
+These are planning estimates based entirely on user-entered assumptions and must
+never be presented as energy savings measured from a thermal image.

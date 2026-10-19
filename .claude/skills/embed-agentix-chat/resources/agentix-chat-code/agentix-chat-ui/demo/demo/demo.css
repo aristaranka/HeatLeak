@@ -1,0 +1,161 @@
+/*
+ * Copyright 2009-2026 C3 AI (www.c3.ai). All Rights Reserved.
+ * Confidential and Proprietary C3 Materials.
+ * This material, including without limitation any software, is the confidential trade secret and proprietary
+ * information of C3 and its licensors. Reproduction, use and/or distribution of this material in any form is
+ * strictly prohibited except as set forth in a written license agreement with C3 and/or its authorized distributors.
+ * This material may be covered by one or more patents or pending patent applications.
+ */
+
+/*
+ * Tailwind entry for the embed demo bundle — and the exact set of imports a consumer needs to get
+ * the Nexus look. It mirrors the host's own Tailwind entry (`c3/nexus/react/src/globals.css`):
+ * register the chat cluster with the scanner, pin the layout-critical chat utilities, then import
+ * the package's design-system stylesheet LAST so its `@layer base` tokens/resets land in order.
+ *
+ *  - `@c3/agentix-client-ui/tailwind-sources.css` — the package's `@source` registration of the
+ *    whole chat cluster (`components/ui/*`, shared chrome, pages). Paths resolve relative to that
+ *    file, so it works through the `node_modules` symlink Tailwind would otherwise skip.
+ *  - `@c3/agentix-client-ui/styles/theme.css` — the C3 Agentix DESIGN SYSTEM: self-hosted Geist
+ *    `@font-face`, the `--bg-*`/`--text-*`/`--accent` token layer (+ dark flip), the ShadCN
+ *    `@theme inline` bridge that powers `bg-background` / `text-muted-foreground` / `font-sans`,
+ *    the `dark:` variant, and the base resets. This is the SINGLE package-exported source the host
+ *    imports too — importing it (not inlining a copy) is what makes the embed render pixel-identical
+ *    to the host with zero token setup in the consumer, and it can never drift from the host.
+ *
+ * There is deliberately no import of the Nexus host TREE here (this file used to reach into
+ * `c3/nexus/react/src/globals.css`). The demo still builds with nothing but this package on disk —
+ * every import above resolves through `@c3/agentix-client-ui`, never the host app.
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@c3/agentix-client-ui/tailwind-sources.css';
+
+/*
+ * Pin the layout-critical empty-state / composer / sidebar arbitrary-value utilities inline —
+ * verbatim from the host entry. The chat components live in the package (reached via the
+ * `node_modules` symlink), and Tailwind's source scan does not reliably surface every arbitrary
+ * value from that tree, so without this the whiteglove chat landing renders with a collapsed
+ * composer and mis-sized columns. Keep this list in sync with `c3/nexus/react/src/globals.css`.
+ */
+@source inline("mt-20 mt-5 mb-5 min-h-[49px] min-h-[88px] max-h-[280px] max-h-[220px] max-w-[800px] max-w-[420px] max-w-[200px] max-w-[80%] text-[15px] text-[13px] text-[12px] leading-[1.55] leading-[1.45] leading-[1.4] leading-[1.35] w-[260px] w-10 min-w-72 gap-[18px] gap-2.5 gap-5 px-3.5 pb-2 pb-1.5 pl-2.5 pr-1.5 border-[1.5px] border-l-[3px] flex-[0_0_0px] data-[empty=true]:invisible active:scale-95");
+
+/*
+ * The `prose` classes the chat's Markdown rendering leans on (headings, lists, tables). Tailwind's
+ * preflight strips native heading sizes and list bullets, so without this plugin agent output
+ * renders as one flat wall of text.
+ */
+@plugin '@tailwindcss/typography';
+
+/*
+ * Register this demo's own files with the scanner. Paths in `@source` resolve relative to the
+ * file declaring them, and the package's own registration above covers only the package — so
+ * utilities used ONLY here (the viewport-lock wrapper in EmbedDemoRoutes) would otherwise be
+ * absent from the built CSS and the embed would render with a collapsed, unusable chat column.
+ */
+@source './**/*.tsx';
+@source './**/*.ts';
+
+/*
+ * The design system LAST, so its `@layer base` token/reset content lands in the same order the
+ * host entry places it — after Tailwind's own base layer, before the utilities authoritatively win.
+ */
+@import '@c3/agentix-client-ui/styles/theme.css';
+
+/*
+ * Page-level base rules — the document-wide surface the Nexus host applies UNSCOPED via its own
+ * `index.css` (`c3/nexus/react/src/index.css`). The shared `theme.css` deliberately OMITS these
+ * (the embed re-scopes equivalents under its `.nexus-chat-embed` wrapper so importing it never
+ * restyles a consumer's page), so a FULL-PAGE consumer that wants the host look must supply them
+ * itself — exactly as the host does. Without this, `<body>`/`#root` never pick up the Geist font,
+ * the `--bg-primary` surface, or the bare-element (`input`/`button`/`pre`/`code`) defaults, and the
+ * chat renders on an unstyled page. Ported verbatim from the host `index.css` page section; kept in
+ * `@layer base` so Tailwind utilities still win. Keep in sync with that file.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+  }
+
+  input:not([type='checkbox'], [type='radio']),
+  textarea,
+  select {
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:not([type='checkbox'], [type='radio']):focus,
+  textarea:focus {
+    border-color: var(--border-focus);
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  pre,
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  pre {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  code {
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+}

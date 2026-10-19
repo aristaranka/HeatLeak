@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- DEPLOY ADAPTATION: favicon kept (the demo ships none). -->
+    <link rel="icon" type="image/svg+xml" href="./src/assets/c3Logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus Chat Embed</title>
+    <!--
+      DEPLOY ADAPTATION: FOUC guard (the demo ships none) — set the persisted theme on <html>
+      before the bundle parses, so dark-mode users don't see a light→dark flash while the module
+      graph loads and initTheme() runs. Must stay in sync with lib/theme.ts (same storage key +
+      `data-theme` attribute).
+    -->
+    <script>
+      (function () {
+        try {
+          var t = window.localStorage.getItem('nexus_theme') === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- DEPLOY ADAPTATION: entry is `./src/main.tsx` (our src layout), the demo's is `/main.tsx`. -->
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

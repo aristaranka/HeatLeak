@@ -1,0 +1,5 @@
+Building: {ImplLanguage.Runtime: [java, py, js], Action.Group: [read, write, delete, data-admin]}
+ThermalInspection: {ImplLanguage.Runtime: [java, py, js], Action.Group: [read, write, delete, data-admin]}
+ThermalAnomaly: {ImplLanguage.Runtime: [java, py, js], Action.Group: [read, write, delete, data-admin]}
+RepairScenarioResult: {ImplLanguage.Runtime: [java, py, js]}
+RepairScenario: {ImplLanguage.Runtime: [java, py, js], Action.Group: [read, write, delete, data-admin]}

@@ -1,0 +1,8 @@
+{
+  "id": "default-app-collection",
+  "name": "Default collection",
+  "docAiPipeline": {
+    "id": "default-docai-pipeline"
+  },
+  "unstructuredPipeline": null
+}

@@ -1,0 +1,6 @@
+{
+  "id": "default-docai-pipeline",
+  "name": "Default Doc AI pipeline",
+  "strategyRef": "passage_level",
+  "retrieverId": "default-pg"
+}

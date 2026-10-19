@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-embed-css
+# embed.css is a BUILD OUTPUT in the library's home repo (build:embed-css regenerates it
+# before every build), but in this VENDORED copy it ships as a prebuilt artifact: there is
+# no scripts/ here to regenerate it and NexusChatEmbed.tsx imports it directly. It MUST be
+# committed in a consumer repo, or fresh clones fail with "failed to resolve ./styles/embed.css".
+!src/styles/embed.css
+coverage
