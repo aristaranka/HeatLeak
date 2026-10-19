@@ -23,6 +23,23 @@ Runtime state: 4 fictional **sample** buildings seeded (`isDemo=true`); 0 inspec
 scenarios (demo-ready — demo data is generated on demand from the Overview "Load demo data" button,
 which runs the real analysis pipeline over synthetic thermal images).
 
+## Additions (tejal-main)
+
+- **Detection** (`thermalAnalysis.ts`): local-contrast scoring (cell vs. its neighborhood, not the
+  whole-image mean) so sky/ice/large uniform surfaces are not flagged; rejects camera scale bars,
+  whole-surface regions (>20% of frame), and step edges (rooflines) via a side-contrast check.
+  Palette-aware warmth scoring (`ThermalPalette`: auto/iron/rainbow/white-hot/black-hot) chosen on
+  the upload form and stored on `ThermalInspection.palette`. Uploads always stored as JPEG ≤960px.
+- **Manual regions**: Analysis page "Draw region" → `measureRegion` (box vs. surrounding ring) →
+  member `interpretRegion(regionJson)` (LLM, `source='manual'`, optional `inspectorNote`).
+- **Edit/remove findings**: `ThermalAnomaly` merge for text/category/priority edits; member
+  `removeAnomaly(anomalyId)` renumbers remaining findings. Annotated image is re-rendered client-side
+  and saved after add/remove.
+- **Simulate a repair**: finding panel links to `/simulator?intervention=…&name=…` (category →
+  intervention via `interventionForCategory`), simulator prefills with a caution banner.
+- `c3Action` now always throws `Error` with the server message; New Inspection reports which step failed.
+- `analyze` persists new anomalies with `upsertBatch` (was `mergeBatch`, which only updates existing).
+
 ## Packages
 
 - `pkg1cd5a4c1` (main) — depends on `mcpServer` 8.10 (provides `genaiPlatform` → LLM client).

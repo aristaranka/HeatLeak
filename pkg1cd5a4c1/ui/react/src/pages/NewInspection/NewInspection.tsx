@@ -39,10 +39,10 @@ interface SampleEntry {
 
 const PALETTE_OPTIONS: { value: Palette; label: string }[] = [
   { value: 'auto', label: 'Auto' },
-  { value: 'ironbow', label: 'Ironbow' },
+  { value: 'iron', label: 'Ironbow' },
   { value: 'rainbow', label: 'Rainbow' },
-  { value: 'whitehot', label: 'White-hot' },
-  { value: 'blackhot', label: 'Black-hot' },
+  { value: 'white-hot', label: 'White-hot' },
+  { value: 'black-hot', label: 'Black-hot' },
 ];
 const PALETTE_LABEL: Record<string, string> = Object.fromEntries(PALETTE_OPTIONS.map((o) => [o.value, o.label]));
 
@@ -127,11 +127,13 @@ export default function NewInspection() {
     if (!image) return;
     setBusy(true);
     setError(null);
+    let step = 'Scouting pixels';
     try {
       setBusyLabel('Scouting pixels…');
       const analysis = await analyzeThermalImage(image, palette);
       if (palette === 'auto') setPaletteDetected(PALETTE_LABEL[analysis.paletteUsed]);
 
+      step = 'Saving inspection';
       setBusyLabel('Saving inspection…');
       const building = await ensureBuilding(buildingName.trim(), buildingType);
       const inspection = await createInspection({
@@ -144,10 +146,12 @@ export default function NewInspection() {
         outdoorTempC: outdoorTemp ? Number(outdoorTemp) : undefined,
         originalImage: image.dataUrl,
         annotatedImage: analysis.annotatedDataUrl,
+        palette: palette === 'auto' ? analysis.paletteUsed : palette,
         imageWidth: analysis.width,
         imageHeight: analysis.height,
       });
 
+      step = 'Model review';
       setBusyLabel('Model reviewing image…');
       const analyzed = await analyzeInspection(
         inspection.id,
@@ -172,7 +176,9 @@ export default function NewInspection() {
 
       navigate(`/analysis/${inspection.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong during analysis.');
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+      console.error(`[HeatLeak] ${step} failed`, e);
+      setError(`${step} failed${detail ? `: ${detail}` : '.'}`);
       setBusy(false);
       setBusyLabel('');
     }

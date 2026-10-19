@@ -95,4 +95,15 @@ entity type ThermalAnomaly schema name 'HL_ANOMALY' {
    * Qualitative priority for following up this finding: 'Low', 'Medium', or 'High'.
    */
   priority: !string
+
+  /**
+   * How this region was found: 'auto' (pixel-contrast detection) or 'manual'
+   * (drawn by the inspector and then interpreted by the AI). Null means 'auto'.
+   */
+  source: string
+
+  /**
+   * Optional free-text note the inspector attached to this region.
+   */
+  inspectorNote: string
 }

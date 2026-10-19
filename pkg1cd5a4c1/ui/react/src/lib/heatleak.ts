@@ -6,6 +6,7 @@
  * shows comes through here from the C3 types — there is no local mock data.
  */
 import { c3Action, c3CreateAction, c3MemberAction } from '@/c3Action';
+import type { DetectedRegion, ThermalPalette } from '@/lib/thermalAnalysis';
 
 /* ----------------------------- Types ---------------------------------- */
 
@@ -44,7 +45,9 @@ export interface ThermalAnomaly {
   priority: Priority;
   rejected?: boolean;
   rejectionReason?: string;
-  source?: 'cv' | 'vision';
+  /** 'cv' = pixel scout, 'vision' = added by the model, 'manual' = drawn by the inspector ('auto' = legacy scout). */
+  source?: 'auto' | 'manual' | 'cv' | 'vision';
+  inspectorNote?: string;
 }
 
 export interface ThermalInspection {
@@ -60,6 +63,7 @@ export interface ThermalInspection {
   outdoorTempC?: number;
   originalImage?: string;
   annotatedImage?: string;
+  palette?: ThermalPalette;
   imageWidth?: number;
   imageHeight?: number;
   summary?: string;
@@ -102,6 +106,14 @@ export const INSPECTION_STATUSES: InspectionStatus[] = [
   'Verified',
   'Resolved',
 ];
+export const PRIORITIES: Priority[] = ['Low', 'Medium', 'High'];
+export const ANOMALY_CATEGORIES = [
+  'Window-frame thermal contrast',
+  'Possible thermal bridging',
+  'Door-seal irregularity',
+  'Wall/ceiling temperature pattern',
+  'Ambiguous thermal pattern',
+];
 export const INTERVENTIONS = [
   'Window weatherstripping',
   'Door seal replacement',
@@ -109,6 +121,23 @@ export const INTERVENTIONS = [
   'Insulation assessment',
   'Thermal bridging investigation',
 ];
+
+/**
+ * The hypothetical intervention most closely matching a finding's category, used
+ * to prefill the Impact Simulator. A suggestion for comparison, not a diagnosis.
+ */
+export function interventionForCategory(category?: string): string {
+  switch (category) {
+    case 'Window-frame thermal contrast':
+      return 'Window weatherstripping';
+    case 'Door-seal irregularity':
+      return 'Door seal replacement';
+    case 'Possible thermal bridging':
+      return 'Thermal bridging investigation';
+    default:
+      return 'Insulation assessment';
+  }
+}
 
 /* -------------------------- Fetch spec types --------------------------- */
 
@@ -201,6 +230,7 @@ export interface CreateInspectionInput {
   outdoorTempC?: number;
   originalImage: string;
   annotatedImage: string;
+  palette?: ThermalPalette;
   imageWidth: number;
   imageHeight: number;
   isDemo?: boolean;
@@ -221,6 +251,7 @@ export async function createInspection(input: CreateInspectionInput): Promise<Th
     outdoorTempC: input.outdoorTempC,
     originalImage: input.originalImage,
     annotatedImage: input.annotatedImage,
+    palette: input.palette ?? 'auto',
     imageWidth: input.imageWidth,
     imageHeight: input.imageHeight,
     analyzed: false,
@@ -234,6 +265,49 @@ export async function analyzeInspection(
   regionsJson: string,
 ): Promise<ThermalInspection> {
   return (await c3MemberAction('ThermalInspection', 'analyze', { id }, [regionsJson])) as ThermalInspection;
+}
+
+/**
+ * Ask the AI to interpret one inspector-drawn region (already measured from the
+ * image pixels). The backend appends it as a 'manual' anomaly.
+ */
+export async function interpretRegion(
+  inspectionId: string,
+  region: DetectedRegion & { inspectorNote?: string },
+): Promise<ThermalAnomaly> {
+  return (await c3MemberAction('ThermalInspection', 'interpretRegion', { id: inspectionId }, [
+    JSON.stringify(region),
+  ])) as ThermalAnomaly;
+}
+
+/** Remove one anomaly; the backend renumbers the rest and updates the count. */
+export async function removeAnomaly(inspectionId: string, anomalyId: string): Promise<ThermalInspection> {
+  return (await c3MemberAction('ThermalInspection', 'removeAnomaly', { id: inspectionId }, [
+    anomalyId,
+  ])) as ThermalInspection;
+}
+
+export type AnomalyEdit = Partial<
+  Pick<
+    ThermalAnomaly,
+    | 'category'
+    | 'priority'
+    | 'observation'
+    | 'possibleCauses'
+    | 'alternativeExplanations'
+    | 'verificationStep'
+    | 'inspectorNote'
+  >
+>;
+
+/** Save inspector edits to an anomaly's text fields. */
+export async function updateAnomaly(id: string, edit: AnomalyEdit): Promise<void> {
+  await c3CreateAction('ThermalAnomaly', 'merge', { id, ...edit });
+}
+
+/** Persist a re-rendered annotated image after findings change. */
+export async function updateAnnotatedImage(id: string, annotatedImage: string): Promise<void> {
+  await c3CreateAction('ThermalInspection', 'merge', { id, annotatedImage });
 }
 
 export async function updateInspectionStatus(id: string, status: InspectionStatus): Promise<void> {
@@ -269,16 +343,20 @@ export async function computeScenario(
   ])) as RepairScenarioResult;
 }
 
-export async function fetchScenarios(): Promise<RepairScenario[]> {
-  const res = (await c3Action('RepairScenario', 'fetch', {
-    include: 'this',
+export async function fetchScenarios(opts?: { inspectionId?: string }): Promise<LinkedRepairScenario[]> {
+  const spec: Record<string, unknown> = {
+    include: 'this, inspection.id',
     limit: 100,
     order: 'descending(meta.created)',
-  })) as FetchResponse<RepairScenario>;
+  };
+  if (opts?.inspectionId) spec.filter = `inspection.id == '${opts.inspectionId}'`;
+  const res = (await c3Action('RepairScenario', 'fetch', spec)) as FetchResponse<LinkedRepairScenario>;
   return res.objs ?? [];
 }
 
-export async function saveScenario(input: Omit<RepairScenario, 'id' | 'meta'>): Promise<RepairScenario> {
+export async function saveScenario(
+  input: Omit<RepairScenario, 'id' | 'meta'> & { inspection?: { id: string } },
+): Promise<RepairScenario> {
   return (await c3CreateAction('RepairScenario', 'create', input)) as RepairScenario;
 }
 
@@ -351,9 +429,10 @@ export function needsFollowUp(status?: string): boolean {
   return status === 'Needs Review' || status === 'Under Investigation';
 }
 
-/* ---- A ---- */
+/* ---- C ---- */
 
-/** Persist the client-rendered annotated image after the model's verdicts are known. */
-export async function updateAnnotatedImage(id: string, annotatedImage: string): Promise<void> {
-  await c3CreateAction('ThermalInspection', 'merge', { id, annotatedImage });
-}
+/** ThermalAnomaly with the §4 contract fields (B provisions them; optional until merged). */
+export type ReviewedAnomaly = ThermalAnomaly & { rejected?: boolean; rejectionReason?: string };
+
+/** A scenario modelled from an inspection's findings links back to it (RepairScenario.inspection exists). */
+export type LinkedRepairScenario = RepairScenario & { inspection?: { id: string } };

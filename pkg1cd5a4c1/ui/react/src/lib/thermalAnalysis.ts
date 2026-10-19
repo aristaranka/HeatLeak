@@ -20,7 +20,8 @@
  * (cold sky regions upper-left and upper-center, plus one lower-right patch).
  */
 
-export type Palette = 'auto' | 'ironbow' | 'rainbow' | 'whitehot' | 'blackhot';
+export type Palette = 'auto' | 'iron' | 'rainbow' | 'white-hot' | 'black-hot';
+export type ThermalPalette = Palette;
 type RampName = Exclude<Palette, 'auto'>;
 
 export interface DetectedRegion {
@@ -62,7 +63,7 @@ export interface AnnotationBox {
   hPct: number;
   polarity: 'hot' | 'cold';
   rejected?: boolean;
-  source?: 'cv' | 'vision';
+  source?: 'auto' | 'manual' | 'cv' | 'vision';
 }
 
 const MAX_STORE_DIM = 1100;
@@ -167,12 +168,12 @@ function sampleRamp(stops: [number, Rgb][], n = 32): Rgb[] {
 }
 
 const RAMPS: Record<RampName, Rgb[]> = {
-  ironbow: sampleRamp(IRONBOW_STOPS),
+  iron: sampleRamp(IRONBOW_STOPS),
   rainbow: sampleRamp(evenStops(RAINBOW_HEX.map(hexToRgb))),
-  whitehot: sampleRamp(evenStops([[0, 0, 0], [255, 255, 255]])),
-  blackhot: sampleRamp(evenStops([[255, 255, 255], [0, 0, 0]])),
+  'white-hot': sampleRamp(evenStops([[0, 0, 0], [255, 255, 255]])),
+  'black-hot': sampleRamp(evenStops([[255, 255, 255], [0, 0, 0]])),
 };
-const RAMP_ORDER: RampName[] = ['ironbow', 'rainbow', 'whitehot', 'blackhot'];
+const RAMP_ORDER: RampName[] = ['iron', 'rainbow', 'white-hot', 'black-hot'];
 
 /** Nearest sampled stop on the ramp: returns its index / 31 and the RGB distance to it. */
 function nearestStop(ramp: Rgb[], r: number, g: number, b: number): { score: number; dist: number } {
@@ -192,7 +193,7 @@ function nearestStop(ramp: Rgb[], r: number, g: number, b: number): { score: num
 }
 
 function pickPalette(pixels: Uint8ClampedArray, count: number): RampName {
-  let bestName: RampName = 'ironbow';
+  let bestName: RampName = 'iron';
   let bestMean = Infinity;
   for (const name of RAMP_ORDER) {
     let total = 0;
@@ -534,4 +535,78 @@ export function renderAnnotated(
   });
 
   return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/** A bounding box as fractions (0..1) of the image. */
+export interface RegionBox {
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+}
+
+/**
+ * Measure an inspector-drawn box against the actual image pixels: its mean score compared
+ * with a surrounding ring gives polarity and relative intensity. Little contrast comes back
+ * as a near-zero intensity rather than an invented one.
+ */
+export async function measureRegion(
+  image: LoadedImage,
+  box: RegionBox,
+  palette: Palette = 'auto',
+): Promise<DetectedRegion> {
+  const img = await loadImage(image.dataUrl);
+  const width = image.width || img.width;
+  const height = image.height || img.height;
+  const GW = 56;
+  const GH = Math.min(72, Math.max(24, Math.round((GW * height) / width)));
+  const pixels = sampleToGrid(img, GW, GH);
+  const used: RampName = palette === 'auto' ? pickPalette(pixels, GW * GH) : palette;
+  const scores = scoresFor(pixels, GW * GH, RAMPS[used]);
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const std = Math.sqrt(scores.reduce((a, s) => a + (s - mean) * (s - mean), 0) / scores.length) || 1e-6;
+
+  const x0 = Math.max(0, Math.min(GW - 1, Math.floor(box.xPct * GW)));
+  const y0 = Math.max(0, Math.min(GH - 1, Math.floor(box.yPct * GH)));
+  const x1 = Math.max(x0, Math.min(GW - 1, Math.ceil((box.xPct + box.wPct) * GW) - 1));
+  const y1 = Math.max(y0, Math.min(GH - 1, Math.ceil((box.yPct + box.hPct) * GH) - 1));
+  const padX = Math.max(1, Math.round((x1 - x0 + 1) / 2));
+  const padY = Math.max(1, Math.round((y1 - y0 + 1) / 2));
+  let inSum = 0;
+  let inN = 0;
+  let ringSum = 0;
+  let ringN = 0;
+  for (let gy = Math.max(0, y0 - padY); gy <= Math.min(GH - 1, y1 + padY); gy++) {
+    for (let gx = Math.max(0, x0 - padX); gx <= Math.min(GW - 1, x1 + padX); gx++) {
+      const sc = scores[gy * GW + gx];
+      if (gx >= x0 && gx <= x1 && gy >= y0 && gy <= y1) {
+        inSum += sc;
+        inN++;
+      } else {
+        ringSum += sc;
+        ringN++;
+      }
+    }
+  }
+  // A box covering the whole frame has no ring, so no relative contrast.
+  const avgZ = inN && ringN ? (inSum / inN - ringSum / ringN) / std : 0;
+  return {
+    xPct: round3(box.xPct),
+    yPct: round3(box.yPct),
+    wPct: round3(box.wPct),
+    hPct: round3(box.hPct),
+    polarity: avgZ >= 0 ? 'hot' : 'cold',
+    relativeIntensity: round3(Math.max(-1, Math.min(1, avgZ / 3))),
+    areaPct: round3(box.wPct * box.hPct),
+    locationLabel: locationLabel(box.xPct + box.wPct / 2, box.yPct + box.hPct / 2),
+  };
+}
+
+/** Re-draw the annotated copy from current findings so the report stays in sync after edits. */
+export async function renderAnnotatedImage(
+  image: LoadedImage,
+  regions: (RegionBox & { polarity: 'hot' | 'cold' })[],
+): Promise<string> {
+  const img = await loadImage(image.dataUrl);
+  return renderAnnotated(img, image.width || img.width, image.height || img.height, regions);
 }
