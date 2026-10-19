@@ -1,2 +1,0 @@
-genaifsc: genaiPlatform
-genaifsc_2: genaiPlatform

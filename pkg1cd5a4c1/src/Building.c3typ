@@ -1,0 +1,45 @@
+/**
+ * A physical building that can be inspected with infrared thermal imaging.
+ *
+ * A {@link Building} groups the {@link ThermalInspection}s performed on a single
+ * structure so that unresolved findings and inspection history can be tracked per
+ * property. Buildings may be created by users in the Buildings page or loaded as
+ * clearly-labeled fictional sample data (see {@link Building#isDemo}).
+ */
+entity type Building schema name 'HL_BUILDING' {
+
+  /**
+   * Human-readable name or identifier of the building (e.g. "Riverside Office Tower").
+   */
+  name: !string
+
+  /**
+   * Broad classification of the building. One of {@link BuildingType}:
+   * Residential, Commercial, Industrial, or Institutional.
+   */
+  buildingType: string enum('Residential', 'Commercial', 'Industrial', 'Institutional')
+
+  /**
+   * Optional free-text location — a street address, campus, city, or any
+   * description that helps an inspector locate the building.
+   */
+  location: string
+
+  /**
+   * Optional notes describing the building (construction era, envelope type,
+   * known issues, etc.).
+   */
+  description: string
+
+  /**
+   * True when this record is clearly-labeled fictional demonstration data rather
+   * than a real building the user added. Surfaced in the UI with a "Sample" badge.
+   */
+  isDemo: boolean
+
+  /**
+   * All {@link ThermalInspection}s performed on this building. Inverse of
+   * {@link ThermalInspection#building}.
+   */
+  inspections: [ThermalInspection](building)
+}

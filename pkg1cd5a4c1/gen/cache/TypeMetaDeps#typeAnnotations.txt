@@ -1,4 +1,0 @@
-Building: ["Ann.Constraint"]
-ThermalInspection: ["Ann.Constraint"]
-ThermalAnomaly: ["Ann.Constraint"]
-RepairScenario: ["Ann.Constraint"]

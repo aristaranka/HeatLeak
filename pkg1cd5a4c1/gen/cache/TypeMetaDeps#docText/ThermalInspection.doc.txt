@@ -1,7 +1,0 @@
-One thermal inspection: a session in which a user uploaded an infrared thermal
-image of a building and ran HeatLeak AI's assisted anomaly screening on it.
-The uploaded image is stored on the record (ThermalInspection#originalImage)
-together with the AI-written ThermalInspection#summary and the individual
-ThermalAnomaly findings reachable through ThermalInspection#anomalies.
-All results are preliminary screening observations requiring verification — a
-thermal anomaly is not a confirmed building defect.

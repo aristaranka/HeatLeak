@@ -1,5 +1,0 @@
-A physical building that can be inspected with infrared thermal imaging.
-A Building groups the ThermalInspections performed on a single
-structure so that unresolved findings and inspection history can be tracked per
-property. Buildings may be created by users in the Buildings page or loaded as
-clearly-labeled fictional sample data (see Building#isDemo).

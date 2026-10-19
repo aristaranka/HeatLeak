@@ -1,0 +1,34 @@
+[
+  {
+    "id": "seed_building_maple_residence",
+    "name": "Sample — Maple Street Residence",
+    "buildingType": "Residential",
+    "location": "Sample data · single-family home",
+    "description": "Fictional two-story wood-frame home used to demonstrate HeatLeak AI. Not a real inspected property.",
+    "isDemo": true
+  },
+  {
+    "id": "seed_building_downtown_office",
+    "name": "Sample — Downtown Office Block",
+    "buildingType": "Commercial",
+    "location": "Sample data · mid-rise office",
+    "description": "Fictional curtain-wall office building used for demonstration only.",
+    "isDemo": true
+  },
+  {
+    "id": "seed_building_northgate_warehouse",
+    "name": "Sample — Northgate Warehouse",
+    "buildingType": "Industrial",
+    "location": "Sample data · distribution warehouse",
+    "description": "Fictional metal-clad warehouse used for demonstration only.",
+    "isDemo": true
+  },
+  {
+    "id": "seed_building_community_library",
+    "name": "Sample — Community Library",
+    "buildingType": "Institutional",
+    "location": "Sample data · public library",
+    "description": "Fictional masonry civic building used for demonstration only.",
+    "isDemo": true
+  }
+]

@@ -1,5 +1,0 @@
-Building: ["Ann.Deprecated","Ann.Java","Ann.Action","Ann.Beta","Ann.Js","Ann.Constraint"]
-ThermalInspection: ["Ann.Deprecated","Ann.Java","Ann.Action","Ann.Beta","Ann.Js","Ann.Constraint"]
-ThermalAnomaly: ["Ann.Deprecated","Ann.Java","Ann.Action","Ann.Beta","Ann.Js","Ann.Constraint"]
-RepairScenarioResult: ["Ann.Deprecated","Ann.Java","Ann.Beta","Ann.Js"]
-RepairScenario: ["Ann.Deprecated","Ann.Java","Ann.Action","Ann.Beta","Ann.Js","Ann.Constraint"]

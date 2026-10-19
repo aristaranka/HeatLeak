@@ -1,5 +1,0 @@
-Building: pkg1cd5a4c1
-ThermalInspection: pkg1cd5a4c1
-ThermalAnomaly: pkg1cd5a4c1
-RepairScenarioResult: pkg1cd5a4c1
-RepairScenario: pkg1cd5a4c1

@@ -1,4 +1,0 @@
-ThermalInspection: {Building: DeclaredReferenceType, ThermalAnomaly: ArrayType}
-Building: {ThermalInspection: ArrayType}
-ThermalAnomaly: {ThermalInspection: DeclaredReferenceType}
-RepairScenario: {ThermalInspection: DeclaredReferenceType}

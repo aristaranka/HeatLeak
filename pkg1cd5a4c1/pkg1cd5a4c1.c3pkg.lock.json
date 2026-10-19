@@ -1,7 +1,0 @@
-{
-  "version" : "1.0.0",
-  "declaredDependencies" : {
-    "mcpServer" : "8.10"
-  },
-  "resolvedDependencies" : { }
-}

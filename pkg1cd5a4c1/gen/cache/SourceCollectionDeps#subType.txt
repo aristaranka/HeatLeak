@@ -1,2 +1,0 @@
-genaifsc: FileSourceCollection
-genaifsc_2: FileSourceCollection

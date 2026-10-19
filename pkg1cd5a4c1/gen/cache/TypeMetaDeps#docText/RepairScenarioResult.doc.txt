@@ -1,4 +1,0 @@
-The computed economics of a single hypothetical RepairScenario.
-A lightweight, non-persisted value type returned by RepairScenario#evaluate.
-Every figure is a hypothetical scenario based on user-provided assumptions —
-it cannot be derived from a thermal image alone.

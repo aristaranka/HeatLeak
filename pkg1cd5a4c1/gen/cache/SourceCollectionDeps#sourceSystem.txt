@@ -1,2 +1,0 @@
-genaifsc: genaifss
-genaifsc_2: genaifss_2

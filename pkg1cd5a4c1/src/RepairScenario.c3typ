@@ -1,0 +1,65 @@
+/**
+ * One hypothetical remediation scenario in HeatLeak AI's Energy Impact Simulator.
+ *
+ * A {@link RepairScenario} captures a user's cost/savings assumptions for a candidate
+ * intervention (weatherstripping, seal replacement, insulation work, …) so several
+ * options can be compared side by side. The derived economics come from
+ * {@link RepairScenario#evaluate}.
+ *
+ * These are **planning estimates based entirely on user-entered assumptions** and must
+ * never be presented as energy savings measured from a thermal image.
+ */
+entity type RepairScenario schema name 'HL_REPAIR_SCENARIO' {
+
+  /**
+   * A short label for the scenario (e.g. "Weatherstrip north windows").
+   */
+  name: !string
+
+  /**
+   * Optional {@link ThermalInspection} this scenario is being evaluated against.
+   */
+  inspection: ThermalInspection
+
+  /**
+   * The kind of intervention, e.g. 'Window weatherstripping', 'Door seal replacement',
+   * 'Window repair', 'Insulation assessment', or 'Thermal bridging investigation'.
+   */
+  interventionType: string
+
+  /**
+   * Estimated up-front repair cost, in currency units.
+   */
+  repairCost: double
+
+  /**
+   * Estimated annual energy savings, in kWh.
+   */
+  annualEnergySavingsKwh: double
+
+  /**
+   * Electricity price, in currency units per kWh.
+   */
+  electricityPricePerKwh: double
+
+  /**
+   * Optional grid emissions factor, in kg CO2e per kWh, used to estimate avoided
+   * emissions.
+   */
+  emissionsFactorKgPerKwh: double
+
+  /**
+   * Compute the economics of a scenario from raw assumptions.
+   *
+   * annualCostSavings = annualEnergySavingsKwh × electricityPricePerKwh;
+   * simplePaybackYears = repairCost ÷ annualCostSavings (null when savings ≤ 0);
+   * annualEmissionsReductionKg = annualEnergySavingsKwh × emissionsFactorKgPerKwh.
+   *
+   * @param repairCost Estimated up-front repair cost.
+   * @param annualEnergySavingsKwh Estimated annual energy savings in kWh.
+   * @param electricityPricePerKwh Electricity price per kWh.
+   * @param emissionsFactorKgPerKwh Optional emissions factor in kg CO2e per kWh.
+   * @return A {@link RepairScenarioResult} with the derived figures.
+   */
+  computeScenario: function(repairCost: double, annualEnergySavingsKwh: double, electricityPricePerKwh: double, emissionsFactorKgPerKwh: double): RepairScenarioResult js-server
+}
