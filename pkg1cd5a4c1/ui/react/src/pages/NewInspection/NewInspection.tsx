@@ -8,17 +8,43 @@ import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
-import CautionNotice from '@/components/heatleak/CautionNotice';
 import {
   fetchBuildings,
   ensureBuilding,
   createInspection,
   analyzeInspection,
+  updateAnnotatedImage,
   BUILDING_TYPES,
   BuildingType,
   Building,
 } from '@/lib/heatleak';
-import { fileToStoredImage, analyzeThermalImage, LoadedImage } from '@/lib/thermalAnalysis';
+import {
+  fileToStoredImage,
+  analyzeThermalImage,
+  loadImage,
+  renderAnnotated,
+  LoadedImage,
+  Palette,
+} from '@/lib/thermalAnalysis';
+
+interface SampleEntry {
+  file: string;
+  title: string;
+  buildingName: string;
+  buildingType: BuildingType;
+  credit: string;
+  license: string;
+  sourceUrl: string;
+}
+
+const PALETTE_OPTIONS: { value: Palette; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'ironbow', label: 'Ironbow' },
+  { value: 'rainbow', label: 'Rainbow' },
+  { value: 'whitehot', label: 'White-hot' },
+  { value: 'blackhot', label: 'Black-hot' },
+];
+const PALETTE_LABEL: Record<string, string> = Object.fromEntries(PALETTE_OPTIONS.map((o) => [o.value, o.label]));
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png'];
 
@@ -35,6 +61,10 @@ export default function NewInspection() {
   const [notes, setNotes] = useState('');
   const [indoorTemp, setIndoorTemp] = useState('');
   const [outdoorTemp, setOutdoorTemp] = useState('');
+  const [palette, setPalette] = useState<Palette>('auto');
+  const [paletteDetected, setPaletteDetected] = useState('');
+  const [samples, setSamples] = useState<SampleEntry[]>([]);
+  const [credit, setCredit] = useState<SampleEntry | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
@@ -42,6 +72,13 @@ export default function NewInspection() {
 
   useEffect(() => {
     void fetchBuildings().then(setBuildings).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    fetch(import.meta.env.BASE_URL + 'samples/manifest.json')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no manifest'))))
+      .then((m: SampleEntry[]) => setSamples(Array.isArray(m) ? m : []))
+      .catch(() => setSamples([]));
   }, []);
 
   const handleFile = useCallback(async (file: File) => {
@@ -54,11 +91,28 @@ export default function NewInspection() {
       const stored = await fileToStoredImage(file);
       setImage(stored);
       setFileName(file.name);
+      setCredit(null);
+      setPaletteDetected('');
       if (!buildingName) setBuildingName(file.name.replace(/\.[^.]+$/, ''));
     } catch {
       setError('Could not read that image. Try a different file.');
     }
   }, [buildingName]);
+
+  const loadSample = async (entry: SampleEntry) => {
+    setError(null);
+    try {
+      const res = await fetch(import.meta.env.BASE_URL + 'samples/' + entry.file);
+      if (!res.ok) throw new Error('missing');
+      const blob = await res.blob();
+      await handleFile(new File([blob], entry.file, { type: blob.type }));
+      setBuildingName(entry.buildingName);
+      setBuildingType(entry.buildingType);
+      setCredit(entry);
+    } catch {
+      setError('Could not load that sample. Try uploading your own image.');
+    }
+  };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -74,8 +128,9 @@ export default function NewInspection() {
     setBusy(true);
     setError(null);
     try {
-      setBusyLabel('Analyzing image pixels…');
-      const analysis = await analyzeThermalImage(image);
+      setBusyLabel('Scouting pixels…');
+      const analysis = await analyzeThermalImage(image, palette);
+      if (palette === 'auto') setPaletteDetected(PALETTE_LABEL[analysis.paletteUsed]);
 
       setBusyLabel('Saving inspection…');
       const building = await ensureBuilding(buildingName.trim(), buildingType);
@@ -93,8 +148,27 @@ export default function NewInspection() {
         imageHeight: analysis.height,
       });
 
-      setBusyLabel('Generating AI explanations…');
-      await analyzeInspection(inspection.id, JSON.stringify(analysis.regions));
+      setBusyLabel('Model reviewing image…');
+      const analyzed = await analyzeInspection(
+        inspection.id,
+        JSON.stringify({
+          regions: analysis.regions,
+          gridText: analysis.gridText,
+          gridW: analysis.gridW,
+          gridH: analysis.gridH,
+        }),
+      );
+
+      // Re-render the annotated copy from the final verdicts so report and slider match.
+      const anomalies = analyzed.anomalies ?? [];
+      const ordered = [...anomalies].sort((a, b) => a.anomalyIndex - b.anomalyIndex);
+      if (ordered.length > 0) {
+        const base = await loadImage(image.dataUrl);
+        await updateAnnotatedImage(
+          inspection.id,
+          renderAnnotated(base, analysis.width, analysis.height, ordered),
+        );
+      }
 
       navigate(`/analysis/${inspection.id}`);
     } catch (e) {
@@ -127,6 +201,24 @@ export default function NewInspection() {
               if (f) void handleFile(f);
             }}
           />
+          {samples.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                Try a sample thermal image
+              </span>
+              {samples.map((s) => (
+                <Button
+                  key={s.file}
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void loadSample(s)}
+                >
+                  {s.title}
+                </Button>
+              ))}
+            </div>
+          ) : null}
           {!image ? (
             <button
               type="button"
@@ -178,9 +270,16 @@ export default function NewInspection() {
               <div className="overflow-hidden rounded-[var(--c3-style-border-radius-4)] border border-[var(--c3-style-basic-border-border)] bg-black">
                 <img src={image.dataUrl} alt="Uploaded thermal preview" className="block w-full" />
               </div>
+              {credit ? (
+                <p className="text-[11px] text-[var(--c3-style-basic-fg-secondary)]">
+                  Credit: {credit.credit}, {credit.license}.{' '}
+                  <a href={credit.sourceUrl} target="_blank" rel="noreferrer" className="underline">
+                    Source
+                  </a>
+                </p>
+              ) : null}
             </Card>
           )}
-          <CautionNotice compact />
         </div>
 
         {/* Details form */}
@@ -218,6 +317,25 @@ export default function NewInspection() {
                 onValueChange={(v) => v && setBuildingType(v as BuildingType)}
                 options={BUILDING_TYPES.map((t) => ({ value: t, label: t }))}
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="palette" className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                Camera palette
+              </label>
+              <div className="flex items-center gap-3">
+                <Combobox
+                  id="palette"
+                  value={palette}
+                  onValueChange={(v) => v && setPalette(v as Palette)}
+                  options={PALETTE_OPTIONS}
+                />
+                {palette === 'auto' && paletteDetected ? (
+                  <span className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                    Palette detected: {paletteDetected}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

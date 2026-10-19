@@ -42,6 +42,9 @@ export interface ThermalAnomaly {
   alternativeExplanations: string;
   verificationStep: string;
   priority: Priority;
+  rejected?: boolean;
+  rejectionReason?: string;
+  source?: 'cv' | 'vision';
 }
 
 export interface ThermalInspection {
@@ -65,6 +68,7 @@ export interface ThermalInspection {
   analyzed?: boolean;
   isDemo?: boolean;
   anomalies?: ThermalAnomaly[];
+  explanationSource?: 'vision' | 'text' | 'template';
   meta?: Meta;
 }
 
@@ -345,4 +349,11 @@ export function priorityAppearance(priority?: string): Appearance {
 /** Does a status count as still needing follow-up? */
 export function needsFollowUp(status?: string): boolean {
   return status === 'Needs Review' || status === 'Under Investigation';
+}
+
+/* ---- A ---- */
+
+/** Persist the client-rendered annotated image after the model's verdicts are known. */
+export async function updateAnnotatedImage(id: string, annotatedImage: string): Promise<void> {
+  await c3CreateAction('ThermalInspection', 'merge', { id, annotatedImage });
 }
