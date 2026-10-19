@@ -12,7 +12,17 @@
  * heat loss; palettes differ between cameras; reflections/emissivity affect
  * apparent temperature; without radiometric metadata absolute temperatures cannot
  * be established. These are screening observations, not confirmed defects.
+ *
+ * Tuning (checked on the four public/samples images): detection grid 56 wide, thresholds
+ * [1.25, 1.0, 0.8, 0.65] lowered until 3+ regions turn up, bbox area cap 30% with re-test at
+ * T+0.75 then T+1.5 and then drop, same-polarity IoU merge > 0.3, MAX_REGIONS 6, palette ramps
+ * sampled to 32 stops. Result: 3-6 candidates per sample; hero is house-uninsulated-wall.jpg
+ * (cold sky regions upper-left and upper-center, plus one lower-right patch).
  */
+
+export type Palette = 'auto' | 'iron' | 'rainbow' | 'white-hot' | 'black-hot';
+export type ThermalPalette = Palette;
+type RampName = Exclude<Palette, 'auto'>;
 
 export interface DetectedRegion {
   xPct: number;
@@ -24,53 +34,8 @@ export interface DetectedRegion {
   relativeIntensity: number;
   areaPct: number;
   locationLabel: string;
-}
-
-/**
- * How the camera mapped temperature to color. Different cameras and export
- * settings use different palettes, so "warm-looking" is palette-dependent.
- */
-export type ThermalPalette = 'auto' | 'iron' | 'rainbow' | 'white-hot' | 'black-hot';
-
-export const THERMAL_PALETTES: { value: ThermalPalette; label: string; hint: string }[] = [
-  { value: 'auto', label: 'Auto (brightness + warm hues)', hint: 'Works for most iron/amber exports.' },
-  { value: 'iron', label: 'Iron / Ironbow', hint: 'Black → purple → red → yellow → white.' },
-  { value: 'rainbow', label: 'Rainbow', hint: 'Blue (cold) → green → yellow → red/magenta (hot).' },
-  { value: 'white-hot', label: 'Grayscale — white hot', hint: 'Brighter is warmer.' },
-  { value: 'black-hot', label: 'Grayscale — black hot', hint: 'Darker is warmer.' },
-];
-
-/** Map one pixel to an apparent-warmth score in 0..1 for the given palette. */
-function warmthScore(r: number, g: number, b: number, palette: ThermalPalette): number {
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255; // 0..1
-  switch (palette) {
-    case 'white-hot':
-      return lum;
-    case 'black-hot':
-      return 1 - lum;
-    case 'rainbow': {
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const sat = max === 0 ? 0 : (max - min) / max;
-      // Near-gray pixels (white/black ends of some rainbow scales) fall back to brightness.
-      if (sat < 0.2) return lum;
-      let hue: number;
-      const d = max - min;
-      if (max === r) hue = ((g - b) / d) % 6;
-      else if (max === g) hue = (b - r) / d + 2;
-      else hue = (r - g) / d + 4;
-      hue = (hue * 60 + 360) % 360;
-      // Magenta/pink sits past red at the hot end of most rainbow scales.
-      if (hue > 270) return 1;
-      return Math.max(0, Math.min(1, (240 - hue) / 240));
-    }
-    case 'iron':
-    case 'auto':
-    default: {
-      const warmCool = (r - b + 255) / 510; // 0..1 (warm ↑)
-      return 0.6 * lum + 0.4 * warmCool;
-    }
-  }
+  /** JPEG data URL of the padded region, long side <= 256px. */
+  crop?: string;
 }
 
 export interface LoadedImage {
@@ -84,19 +49,33 @@ export interface AnalysisResult {
   annotatedDataUrl: string;
   width: number;
   height: number;
+  /** Rows of digits 0-9 (0 = coolest apparent, 9 = warmest), top row first. */
+  gridText: string;
+  gridW: number;
+  gridH: number;
+  paletteUsed: RampName;
 }
 
-const MAX_STORE_DIM = 960;
-const MAX_REGIONS = 5;
-/** Neighborhood radius for local contrast, as a fraction (1/n) of the grid width. */
-const LOCAL_RADIUS_DIVISOR = 7;
-/** Regions larger than this share of the frame are a whole surface, not a localized anomaly. */
-const MAX_REGION_AREA = 0.2;
-/** Minimum contrast (in image std units) against a side for it to count as "enclosing". */
-const MIN_SIDE_CONTRAST = 0.35;
+export interface AnnotationBox {
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+  polarity: 'hot' | 'cold';
+  rejected?: boolean;
+  source?: 'auto' | 'manual' | 'cv' | 'vision';
+}
+
+const MAX_STORE_DIM = 1100;
+const MAX_REGIONS = 6;
+const MIN_WANTED_REGIONS = 3;
+const MAX_AREA_FRAC = 0.3;
+const MERGE_IOU = 0.3;
+const GRID_W = 24;
+const CROP_LONG_SIDE = 256;
 
 /** Load an <img> from a data URL (or any URL). */
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -128,9 +107,9 @@ export async function fileToStoredImage(file: File): Promise<LoadedImage> {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
   ctx.drawImage(img, 0, 0, w, h);
-  // Always JPEG: thermal exports are photographic, and a PNG re-encode can be ~5x
-  // larger, which bloats the record the backend has to store.
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  // Keep PNG for lossless small images, JPEG otherwise to bound size.
+  const useJpeg = w * h > 400 * 400;
+  const dataUrl = useJpeg ? canvas.toDataURL('image/jpeg', 0.85) : canvas.toDataURL('image/png');
   return { dataUrl, width: w, height: h };
 }
 
@@ -141,131 +120,175 @@ function locationLabel(cxPct: number, cyPct: number): string {
   return `${v}-${hLabel}`;
 }
 
-interface ThermalGrid {
-  GW: number;
-  GH: number;
-  /** Raw apparent-warmth score of a grid cell (0..1). */
-  scoreAt: (gx: number, gy: number) => number;
-  /** Whole-image standard deviation of the score, used to normalize contrasts. */
-  std: number;
-  /**
-   * Local contrast of a cell: its score minus the mean of its neighborhood,
-   * normalized by the image std. Unlike a whole-image z-score, large uniform
-   * areas (sky, ground, an ice rink) stay near zero, so localized features such
-   * as leaky windows or thermal bridges stand out.
-   */
-  localZAt: (gx: number, gy: number) => number;
+
+type Rgb = [number, number, number];
+
+/** Ironbow stops, shared with thermalDemo.ts. */
+const IRONBOW_STOPS: [number, Rgb][] = [
+  [0.0, [8, 10, 38]],
+  [0.2, [40, 22, 120]],
+  [0.4, [150, 30, 110]],
+  [0.6, [232, 70, 40]],
+  [0.8, [250, 170, 30]],
+  [1.0, [255, 255, 210]],
+];
+
+const RAINBOW_HEX = ['#000080', '#0000ff', '#00ffff', '#00ff00', '#ffff00', '#ff0000', '#ffffff'];
+
+function hexToRgb(hex: string): Rgb {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-/** Downsample the image to a grid and score each cell's apparent warmth. */
-function sampleThermalGrid(
-  img: HTMLImageElement,
-  width: number,
-  height: number,
-  palette: ThermalPalette,
-): ThermalGrid {
-  // Grid sized to the aspect ratio.
-  const GW = 56;
-  const GH = Math.min(72, Math.max(24, Math.round((GW * height) / width)));
+function evenStops(colors: Rgb[]): [number, Rgb][] {
+  return colors.map((c, i) => [i / (colors.length - 1), c]);
+}
 
-  const sampleCanvas = document.createElement('canvas');
-  sampleCanvas.width = GW;
-  sampleCanvas.height = GH;
-  const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
-  if (!sctx) throw new Error('Canvas unavailable');
-  sctx.drawImage(img, 0, 0, GW, GH);
-  const { data } = sctx.getImageData(0, 0, GW, GH);
-
-  const scores = new Float64Array(GW * GH);
-  let sum = 0;
-  for (let i = 0; i < GW * GH; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    const score = warmthScore(r, g, b, palette);
-    scores[i] = score;
-    sum += score;
+function sampleRamp(stops: [number, Rgb][], n = 32): Rgb[] {
+  const out: Rgb[] = [];
+  for (let k = 0; k < n; k++) {
+    const t = k / (n - 1);
+    let color = stops[stops.length - 1][1];
+    for (let i = 0; i < stops.length - 1; i++) {
+      const [a, ca] = stops[i];
+      const [b, cb] = stops[i + 1];
+      if (t >= a && t <= b) {
+        const f = (t - a) / (b - a || 1);
+        color = [
+          Math.round(ca[0] + (cb[0] - ca[0]) * f),
+          Math.round(ca[1] + (cb[1] - ca[1]) * f),
+          Math.round(ca[2] + (cb[2] - ca[2]) * f),
+        ];
+        break;
+      }
+    }
+    out.push(color);
   }
-  const mean = sum / (GW * GH);
-  let variance = 0;
-  for (let i = 0; i < scores.length; i++) {
-    const d = scores[i] - mean;
-    variance += d * d;
-  }
-  const std = Math.sqrt(variance / scores.length) || 1e-6;
+  return out;
+}
 
-  // Summed-area table for O(1) neighborhood means.
-  const sat = new Float64Array((GW + 1) * (GH + 1));
-  for (let y = 0; y < GH; y++) {
-    for (let x = 0; x < GW; x++) {
-      sat[(y + 1) * (GW + 1) + (x + 1)] =
-        scores[y * GW + x] + sat[y * (GW + 1) + (x + 1)] + sat[(y + 1) * (GW + 1) + x] - sat[y * (GW + 1) + x];
+const RAMPS: Record<RampName, Rgb[]> = {
+  iron: sampleRamp(IRONBOW_STOPS),
+  rainbow: sampleRamp(evenStops(RAINBOW_HEX.map(hexToRgb))),
+  'white-hot': sampleRamp(evenStops([[0, 0, 0], [255, 255, 255]])),
+  'black-hot': sampleRamp(evenStops([[255, 255, 255], [0, 0, 0]])),
+};
+const RAMP_ORDER: RampName[] = ['iron', 'rainbow', 'white-hot', 'black-hot'];
+
+/** Nearest sampled stop on the ramp: returns its index / 31 and the RGB distance to it. */
+function nearestStop(ramp: Rgb[], r: number, g: number, b: number): { score: number; dist: number } {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < ramp.length; i++) {
+    const dr = r - ramp[i][0];
+    const dg = g - ramp[i][1];
+    const db = b - ramp[i][2];
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
     }
   }
-  const R = Math.max(3, Math.round(GW / LOCAL_RADIUS_DIVISOR));
-  const localMean = (gx: number, gy: number) => {
-    const x0 = Math.max(0, gx - R);
-    const y0 = Math.max(0, gy - R);
-    const x1 = Math.min(GW, gx + R + 1);
-    const y1 = Math.min(GH, gy + R + 1);
-    const total =
-      sat[y1 * (GW + 1) + x1] - sat[y0 * (GW + 1) + x1] - sat[y1 * (GW + 1) + x0] + sat[y0 * (GW + 1) + x0];
-    return total / ((x1 - x0) * (y1 - y0));
-  };
-
-  const scoreAt = (gx: number, gy: number) => scores[gy * GW + gx];
-  return { GW, GH, scoreAt, std, localZAt: (gx, gy) => (scoreAt(gx, gy) - localMean(gx, gy)) / std };
+  return { score: best / (ramp.length - 1), dist: Math.sqrt(bestD) };
 }
 
-/**
- * Analyze a stored thermal image: detect candidate anomaly regions and render an
- * annotated copy with numbered bounding boxes.
- */
-export async function analyzeThermalImage(
-  image: LoadedImage,
-  palette: ThermalPalette = 'auto',
-): Promise<AnalysisResult> {
-  const img = await loadImage(image.dataUrl);
-  const width = image.width || img.width;
-  const height = image.height || img.height;
-
-  const grid = sampleThermalGrid(img, width, height, palette);
-  const { GW, GH } = grid;
-
-  const minCells = Math.max(4, Math.round(0.004 * GW * GH));
-
-  // Try decreasing thresholds until we find at least one region (or give up).
-  const thresholds = [1.25, 1.0, 0.8];
-  let regions: DetectedRegion[] = [];
-  for (const T of thresholds) {
-    regions = findRegions(grid, T, minCells);
-    if (regions.length > 0) break;
+function pickPalette(pixels: Uint8ClampedArray, count: number): RampName {
+  let bestName: RampName = 'iron';
+  let bestMean = Infinity;
+  for (const name of RAMP_ORDER) {
+    let total = 0;
+    for (let i = 0; i < count; i++) {
+      total += nearestStop(RAMPS[name], pixels[i * 4], pixels[i * 4 + 1], pixels[i * 4 + 2]).dist;
+    }
+    const mean = total / count;
+    if (mean < bestMean - 1e-9) {
+      bestMean = mean;
+      bestName = name;
+    }
   }
-
-  // Render annotated image.
-  const annotatedDataUrl = renderAnnotated(img, width, height, regions);
-
-  return { regions, annotatedDataUrl, width, height };
+  return bestName;
 }
 
-function findRegions(grid: ThermalGrid, T: number, minCells: number): DetectedRegion[] {
-  const { GW, GH, localZAt: zAt } = grid;
-  const label = new Int32Array(GW * GH).fill(-1);
-  const comps: { cells: number[]; polarity: 'hot' | 'cold' }[] = [];
+function sampleToGrid(img: HTMLImageElement, gw: number, gh: number): Uint8ClampedArray {
+  const canvas = document.createElement('canvas');
+  canvas.width = gw;
+  canvas.height = gh;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Canvas unavailable');
+  ctx.drawImage(img, 0, 0, gw, gh);
+  return ctx.getImageData(0, 0, gw, gh).data;
+}
 
+function scoresFor(pixels: Uint8ClampedArray, count: number, ramp: Rgb[]): number[] {
+  const out = new Array<number>(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = nearestStop(ramp, pixels[i * 4], pixels[i * 4 + 1], pixels[i * 4 + 2]).score;
+  }
+  return out;
+}
+
+/** Decile digits (0-9) of the score distribution, one row per line, top row first. */
+function buildGridText(scores: number[], gw: number, gh: number): string {
+  const sorted = [...scores].sort((a, b) => a - b);
+  const bounds: number[] = [];
+  for (let k = 1; k < 10; k++) bounds.push(sorted[Math.floor((k * sorted.length) / 10)]);
+  const rows: string[] = [];
+  for (let y = 0; y < gh; y++) {
+    let row = '';
+    for (let x = 0; x < gw; x++) {
+      const s = scores[y * gw + x];
+      let digit = 0;
+      for (const b of bounds) if (s >= b) digit++;
+      row += String(digit);
+    }
+    rows.push(row);
+  }
+  return rows.join('\n');
+}
+
+interface Comp {
+  cells: number[];
+  polarity: 'hot' | 'cold';
+}
+
+function bboxOf(cells: number[], GW: number): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -1;
+  let maxY = -1;
+  for (const cell of cells) {
+    const cx = cell % GW;
+    const cy = Math.floor(cell / GW);
+    if (cx < minX) minX = cx;
+    if (cx > maxX) maxX = cx;
+    if (cy < minY) minY = cy;
+    if (cy > maxY) maxY = cy;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/** 4-neighbour flood fill of same-sign cells at threshold T, optionally limited to `allowed`. */
+function floodComponents(
+  zAt: (gx: number, gy: number) => number,
+  GW: number,
+  GH: number,
+  T: number,
+  allowed?: Set<number>,
+): Comp[] {
+  const label = new Int32Array(GW * GH).fill(-1);
+  const comps: Comp[] = [];
   const sign = (gx: number, gy: number): 0 | 1 | -1 => {
+    if (allowed && !allowed.has(gy * GW + gx)) return 0;
     const z = zAt(gx, gy);
     if (z >= T) return 1;
     if (z <= -T) return -1;
     return 0;
   };
-
   for (let gy = 0; gy < GH; gy++) {
     for (let gx = 0; gx < GW; gx++) {
       const idx = gy * GW + gx;
       const s = sign(gx, gy);
       if (s === 0 || label[idx] !== -1) continue;
-      // BFS flood fill of same-sign neighbors.
       const compId = comps.length;
       const stack = [idx];
       label[idx] = compId;
@@ -275,13 +298,12 @@ function findRegions(grid: ThermalGrid, T: number, minCells: number): DetectedRe
         cellList.push(cur);
         const cx = cur % GW;
         const cy = Math.floor(cur / GW);
-        const neighbors = [
+        for (const [nx, ny] of [
           [cx - 1, cy],
           [cx + 1, cy],
           [cx, cy - 1],
           [cx, cy + 1],
-        ];
-        for (const [nx, ny] of neighbors) {
+        ]) {
           if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
           const nIdx = ny * GW + nx;
           if (label[nIdx] !== -1) continue;
@@ -294,208 +316,185 @@ function findRegions(grid: ThermalGrid, T: number, minCells: number): DetectedRe
       comps.push({ cells: cellList, polarity: s === 1 ? 'hot' : 'cold' });
     }
   }
-
-  const scored = comps
-    .filter((c) => c.cells.length >= minCells)
-    .map((c) => {
-      let minX = GW;
-      let minY = GH;
-      let maxX = 0;
-      let maxY = 0;
-      let zSum = 0;
-      for (const cell of c.cells) {
-        const cx = cell % GW;
-        const cy = Math.floor(cell / GW);
-        minX = Math.min(minX, cx);
-        minY = Math.min(minY, cy);
-        maxX = Math.max(maxX, cx);
-        maxY = Math.max(maxY, cy);
-        zSum += zAt(cx, cy);
-      }
-      const avgZ = zSum / c.cells.length;
-      const areaPct = c.cells.length / (GW * GH);
-      const x0 = minX / GW;
-      const y0 = minY / GH;
-      const wPct = (maxX - minX + 1) / GW;
-      const hPct = (maxY - minY + 1) / GH;
-      const cxPct = x0 + wPct / 2;
-      const cyPct = y0 + hPct / 2;
-      if (isLikelyOverlay(x0, wPct, hPct, areaPct)) return null;
-      if (!isEnclosedContrast(grid, c.cells, c.polarity, minX, minY, maxX, maxY)) return null;
-      const rank = Math.abs(avgZ) * Math.sqrt(c.cells.length);
-      const region: DetectedRegion = {
-        xPct: round3(x0),
-        yPct: round3(y0),
-        wPct: round3(wPct),
-        hPct: round3(hPct),
-        polarity: c.polarity,
-        relativeIntensity: round3(Math.max(-1, Math.min(1, avgZ / 3))),
-        areaPct: round3(areaPct),
-        locationLabel: locationLabel(cxPct, cyPct),
-      };
-      return { region, rank };
-    })
-    .filter((s): s is { region: DetectedRegion; rank: number } => s !== null)
-    .sort((a, b) => b.rank - a.rank)
-    .slice(0, MAX_REGIONS)
-    .map((s) => s.region);
-
-  return scored;
-}
-
-/** A bounding box as fractions (0..1) of the image. */
-export interface RegionBox {
-  xPct: number;
-  yPct: number;
-  wPct: number;
-  hPct: number;
+  return comps;
 }
 
 /**
- * Measure an inspector-drawn box against the actual image pixels: its average
- * thermal score compared with a ring of surrounding pixels gives polarity and
- * relative intensity. A box with little contrast comes back with a near-zero
- * intensity rather than an invented one.
+ * Components whose bounding box covers more than MAX_AREA_FRAC of the frame (typically open sky
+ * or a whole wall) are re-tested at a stricter threshold, twice at most, then dropped.
  */
-export async function measureRegion(
-  image: LoadedImage,
-  box: RegionBox,
-  palette: ThermalPalette = 'auto',
-): Promise<DetectedRegion> {
-  const img = await loadImage(image.dataUrl);
-  const { GW, GH, scoreAt, std } = sampleThermalGrid(
-    img,
-    image.width || img.width,
-    image.height || img.height,
-    palette,
+function capComponent(
+  comp: Comp,
+  zAt: (gx: number, gy: number) => number,
+  GW: number,
+  GH: number,
+  T: number,
+  depth: number,
+  minCells: number,
+): Comp[] {
+  const bb = bboxOf(comp.cells, GW);
+  const frac = ((bb.maxX - bb.minX + 1) * (bb.maxY - bb.minY + 1)) / (GW * GH);
+  if (frac <= MAX_AREA_FRAC) return [comp];
+  if (depth >= 2) return [];
+  const stricter = T + 0.75 * (depth + 1);
+  const subs = floodComponents(zAt, GW, GH, stricter, new Set(comp.cells)).filter(
+    (c) => c.polarity === comp.polarity && c.cells.length >= minCells,
   );
-  const x0 = Math.max(0, Math.min(GW - 1, Math.floor(box.xPct * GW)));
-  const y0 = Math.max(0, Math.min(GH - 1, Math.floor(box.yPct * GH)));
-  const x1 = Math.max(x0, Math.min(GW - 1, Math.ceil((box.xPct + box.wPct) * GW) - 1));
-  const y1 = Math.max(y0, Math.min(GH - 1, Math.ceil((box.yPct + box.hPct) * GH) - 1));
-  // Compare the box with a surrounding ring half its size on each side.
-  const padX = Math.max(1, Math.round((x1 - x0 + 1) / 2));
-  const padY = Math.max(1, Math.round((y1 - y0 + 1) / 2));
-  let inSum = 0;
-  let inN = 0;
-  let ringSum = 0;
-  let ringN = 0;
-  for (let gy = Math.max(0, y0 - padY); gy <= Math.min(GH - 1, y1 + padY); gy++) {
-    for (let gx = Math.max(0, x0 - padX); gx <= Math.min(GW - 1, x1 + padX); gx++) {
-      if (gx >= x0 && gx <= x1 && gy >= y0 && gy <= y1) {
-        inSum += scoreAt(gx, gy);
-        inN++;
-      } else {
-        ringSum += scoreAt(gx, gy);
-        ringN++;
-      }
+  return subs.flatMap((c) => capComponent(c, zAt, GW, GH, T, depth + 1, minCells));
+}
+
+function iou(a: DetectedRegion, b: DetectedRegion): number {
+  const ix = Math.max(0, Math.min(a.xPct + a.wPct, b.xPct + b.wPct) - Math.max(a.xPct, b.xPct));
+  const iy = Math.max(0, Math.min(a.yPct + a.hPct, b.yPct + b.hPct) - Math.max(a.yPct, b.yPct));
+  const inter = ix * iy;
+  const union = a.wPct * a.hPct + b.wPct * b.hPct - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/** Merge same-polarity boxes with IoU above MERGE_IOU: union bbox, averaged intensity. */
+function mergeOverlaps(regions: DetectedRegion[]): DetectedRegion[] {
+  const pool = [...regions].sort((a, b) => b.wPct * b.hPct - a.wPct * a.hPct);
+  const out: DetectedRegion[] = [];
+  for (const r of pool) {
+    const hit = out.find((o) => o.polarity === r.polarity && iou(o, r) > MERGE_IOU);
+    if (!hit) {
+      out.push({ ...r });
+      continue;
     }
+    const x0 = Math.min(hit.xPct, r.xPct);
+    const y0 = Math.min(hit.yPct, r.yPct);
+    const x1 = Math.max(hit.xPct + hit.wPct, r.xPct + r.wPct);
+    const y1 = Math.max(hit.yPct + hit.hPct, r.yPct + r.hPct);
+    hit.xPct = round3(x0);
+    hit.yPct = round3(y0);
+    hit.wPct = round3(x1 - x0);
+    hit.hPct = round3(y1 - y0);
+    hit.relativeIntensity = round3((hit.relativeIntensity + r.relativeIntensity) / 2);
+    hit.areaPct = round3(Math.min(hit.wPct * hit.hPct, hit.areaPct + r.areaPct));
+    hit.locationLabel = locationLabel(hit.xPct + hit.wPct / 2, hit.yPct + hit.hPct / 2);
   }
-  // A box covering the whole frame has no ring; it then has no relative contrast.
-  const avgZ = inN && ringN ? (inSum / inN - ringSum / ringN) / std : 0;
-  return {
-    xPct: round3(box.xPct),
-    yPct: round3(box.yPct),
-    wPct: round3(box.wPct),
-    hPct: round3(box.hPct),
-    polarity: avgZ >= 0 ? 'hot' : 'cold',
-    relativeIntensity: round3(Math.max(-1, Math.min(1, avgZ / 3))),
-    areaPct: round3(box.wPct * box.hPct),
-    locationLabel: locationLabel(box.xPct + box.wPct / 2, box.yPct + box.hPct / 2),
-  };
+  return out;
 }
 
-/**
- * Re-draw the annotated copy of a stored image from its current findings, so the
- * report's annotated image stays in sync after regions are added or removed.
- */
-export async function renderAnnotatedImage(
-  image: LoadedImage,
-  regions: (RegionBox & { polarity: 'hot' | 'cold' })[],
-): Promise<string> {
-  const img = await loadImage(image.dataUrl);
-  return renderAnnotated(img, image.width || img.width, image.height || img.height, regions);
-}
+function findRegions(
+  zAt: (gx: number, gy: number) => number,
+  GW: number,
+  GH: number,
+  T: number,
+  minCells: number,
+): DetectedRegion[] {
+  const comps = floodComponents(zAt, GW, GH, T)
+    .filter((c) => c.cells.length >= minCells)
+    .flatMap((c) => capComponent(c, zAt, GW, GH, T, 0, minCells));
 
-/**
- * Reject regions that are almost certainly not building features: a camera's
- * temperature scale bar (narrow, tall, hugging the left/right edge) or a region so
- * large it is the whole surface/background rather than a localized anomaly.
- */
-function isLikelyOverlay(x0: number, wPct: number, hPct: number, areaPct: number): boolean {
-  const atSideEdge = x0 <= 0.02 || x0 + wPct >= 0.98;
-  if (atSideEdge && wPct <= 0.12 && hPct >= 0.4) return true;
-  if (areaPct > MAX_REGION_AREA) return true;
-  return false;
-}
+  const scored = comps.map((c) => {
+    const { minX, minY, maxX, maxY } = bboxOf(c.cells, GW);
+    let zSum = 0;
+    for (const cell of c.cells) zSum += zAt(cell % GW, Math.floor(cell / GW));
+    const avgZ = zSum / c.cells.length;
+    const x0 = minX / GW;
+    const y0 = minY / GH;
+    const wPct = (maxX - minX + 1) / GW;
+    const hPct = (maxY - minY + 1) / GH;
+    const rank = Math.abs(avgZ) * Math.sqrt(c.cells.length);
+    const region: DetectedRegion = {
+      xPct: round3(x0),
+      yPct: round3(y0),
+      wPct: round3(wPct),
+      hPct: round3(hPct),
+      polarity: c.polarity,
+      relativeIntensity: round3(Math.max(-1, Math.min(1, avgZ / 3))),
+      areaPct: round3(c.cells.length / (GW * GH)),
+      locationLabel: locationLabel(x0 + wPct / 2, y0 + hPct / 2),
+    };
+    return { region, rank };
+  });
 
-/**
- * A genuine localized anomaly differs from its surroundings on most sides. A
- * region that only differs on one side is a step edge — e.g. a roofline against
- * the sky — which local contrast also picks up, so it is rejected. Sides that fall
- * outside the frame are not counted.
- */
-function isEnclosedContrast(
-  grid: ThermalGrid,
-  cells: number[],
-  polarity: 'hot' | 'cold',
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
-): boolean {
-  const { GW, GH, scoreAt, std } = grid;
-  let inside = 0;
-  for (const cell of cells) inside += scoreAt(cell % GW, Math.floor(cell / GW));
-  inside /= cells.length;
-
-  const pad = Math.max(2, Math.round(Math.max(maxX - minX + 1, maxY - minY + 1) / 2));
-  const stripMean = (x0: number, y0: number, x1: number, y1: number): number | null => {
-    const ax = Math.max(0, x0);
-    const ay = Math.max(0, y0);
-    const bx = Math.min(GW - 1, x1);
-    const by = Math.min(GH - 1, y1);
-    if (ax > bx || ay > by) return null;
-    let sum = 0;
-    let n = 0;
-    for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++) {
-      sum += scoreAt(x, y);
-      n++;
-    }
-    return sum / n;
-  };
-  const above = stripMean(minX, minY - pad, maxX, minY - 1);
-  const below = stripMean(minX, maxY + 1, maxX, maxY + pad);
-  const left = stripMean(minX - pad, minY, minX - 1, maxY);
-  const right = stripMean(maxX + 1, minY, maxX + pad, maxY);
-
-  const dir = polarity === 'hot' ? 1 : -1;
-  const contrasts = (m: number | null) => m !== null && (inside - m) * dir >= MIN_SIDE_CONTRAST * std;
-  const sides = [above, below, left, right].filter((v) => v !== null);
-  const contrasting = [above, below, left, right].filter(contrasts).length;
-
-  // Elongated regions (roof/floor lines, frames) must stand out on BOTH long sides,
-  // otherwise they are just the boundary between two surfaces.
-  const wc = maxX - minX + 1;
-  const hc = maxY - minY + 1;
-  if (wc >= 3 * hc && !(contrasts(above) && contrasts(below))) return false;
-  if (hc >= 3 * wc && !(contrasts(left) && contrasts(right))) return false;
-
-  // A region cut off by the frame edge must contrast on every side we can see.
-  const touchesEdge = sides.length < 4;
-  if (touchesEdge) return sides.length >= 2 && contrasting === sides.length;
-  return contrasting >= 3;
+  // Rank before merging so the merge keeps the strongest candidates when truncating.
+  const merged = mergeOverlaps(scored.map((s) => s.region));
+  const rankOf = (r: DetectedRegion) => Math.abs(r.relativeIntensity) * Math.sqrt(r.areaPct);
+  return merged.sort((a, b) => rankOf(b) - rankOf(a)).slice(0, MAX_REGIONS);
 }
 
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-function renderAnnotated(
+/** Crop the region (padded 15% per side, clamped) from the full image, long side 256px. */
+function cropRegion(img: HTMLImageElement, r: DetectedRegion): string | undefined {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const x0 = Math.max(0, r.xPct - r.wPct * 0.15) * w;
+  const y0 = Math.max(0, r.yPct - r.hPct * 0.15) * h;
+  const x1 = Math.min(1, r.xPct + r.wPct * 1.15) * w;
+  const y1 = Math.min(1, r.yPct + r.hPct * 1.15) * h;
+  const sw = Math.max(1, x1 - x0);
+  const sh = Math.max(1, y1 - y0);
+  const scale = CROP_LONG_SIDE / Math.max(sw, sh);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return undefined;
+  ctx.drawImage(img, x0, y0, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
+
+/**
+ * Analyze a stored thermal image: detect candidate anomaly regions, crop each, build the
+ * decile grid for the model, and render an annotated copy with numbered bounding boxes.
+ */
+export async function analyzeThermalImage(
+  image: LoadedImage,
+  palette: Palette = 'auto',
+): Promise<AnalysisResult> {
+  const img = await loadImage(image.dataUrl);
+  const width = image.width || img.width;
+  const height = image.height || img.height;
+
+  // Detection grid sized to the aspect ratio.
+  const GW = 56;
+  const GH = Math.min(72, Math.max(24, Math.round((GW * height) / width)));
+  const pixels = sampleToGrid(img, GW, GH);
+  const paletteUsed: RampName = palette === 'auto' ? pickPalette(pixels, GW * GH) : palette;
+  const ramp = RAMPS[paletteUsed];
+
+  const scores = scoresFor(pixels, GW * GH, ramp);
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  let variance = 0;
+  for (const s of scores) variance += (s - mean) * (s - mean);
+  const std = Math.sqrt(variance / scores.length) || 1e-6;
+  const zAt = (gx: number, gy: number) => (scores[gy * GW + gx] - mean) / std;
+
+  const minCells = Math.max(4, Math.round(0.004 * GW * GH));
+
+  // Lower the threshold until at least MIN_WANTED_REGIONS turn up (a scale bar can dominate the z-score).
+  const thresholds = [1.25, 1.0, 0.8, 0.65];
+  let regions: DetectedRegion[] = [];
+  for (const T of thresholds) {
+    const found = findRegions(zAt, GW, GH, T, minCells);
+    if (found.length > regions.length) regions = found;
+    if (regions.length >= MIN_WANTED_REGIONS) break;
+  }
+  regions = regions.map((r) => ({ ...r, crop: cropRegion(img, r) }));
+
+  // Coarse decile grid for the model.
+  const gridW = GRID_W;
+  const gridH = Math.min(24, Math.max(8, Math.round((GRID_W * height) / width)));
+  const gridPixels = sampleToGrid(img, gridW, gridH);
+  const gridText = buildGridText(scoresFor(gridPixels, gridW * gridH, ramp), gridW, gridH);
+
+  const annotatedDataUrl = renderAnnotated(img, width, height, regions);
+
+  return { regions, annotatedDataUrl, width, height, gridText, gridW, gridH, paletteUsed };
+}
+
+/** Draw numbered boxes on a copy of the image. Rejected boxes are skipped; vision additions are dashed. */
+export function renderAnnotated(
   img: HTMLImageElement,
   width: number,
   height: number,
-  regions: (RegionBox & { polarity: 'hot' | 'cold' })[],
+  boxes: AnnotationBox[],
 ): string {
   const scale = Math.min(1, 1200 / Math.max(width, height));
   const w = Math.round(width * scale);
@@ -510,7 +509,10 @@ function renderAnnotated(
   ctx.font = `bold ${Math.max(12, Math.round(w / 48))}px Inter, sans-serif`;
   ctx.textBaseline = 'top';
 
-  regions.forEach((r, i) => {
+  let n = 0;
+  boxes.forEach((r) => {
+    if (r.rejected) return;
+    n += 1;
     const color = r.polarity === 'hot' ? '#f59e0b' : '#22d3ee';
     const bx = r.xPct * w;
     const by = r.yPct * h;
@@ -519,9 +521,10 @@ function renderAnnotated(
     ctx.strokeStyle = color;
     ctx.fillStyle = color + '22';
     ctx.fillRect(bx, by, bw, bh);
+    ctx.setLineDash(r.source === 'vision' ? [6, 4] : []);
     ctx.strokeRect(bx, by, bw, bh);
-    // label chip
-    const label = `#${i + 1}`;
+    ctx.setLineDash([]);
+    const label = `#${n}`;
     const padX = 6;
     const tw = ctx.measureText(label).width + padX * 2;
     const th = Math.max(16, Math.round(w / 40));
@@ -532,4 +535,78 @@ function renderAnnotated(
   });
 
   return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/** A bounding box as fractions (0..1) of the image. */
+export interface RegionBox {
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+}
+
+/**
+ * Measure an inspector-drawn box against the actual image pixels: its mean score compared
+ * with a surrounding ring gives polarity and relative intensity. Little contrast comes back
+ * as a near-zero intensity rather than an invented one.
+ */
+export async function measureRegion(
+  image: LoadedImage,
+  box: RegionBox,
+  palette: Palette = 'auto',
+): Promise<DetectedRegion> {
+  const img = await loadImage(image.dataUrl);
+  const width = image.width || img.width;
+  const height = image.height || img.height;
+  const GW = 56;
+  const GH = Math.min(72, Math.max(24, Math.round((GW * height) / width)));
+  const pixels = sampleToGrid(img, GW, GH);
+  const used: RampName = palette === 'auto' ? pickPalette(pixels, GW * GH) : palette;
+  const scores = scoresFor(pixels, GW * GH, RAMPS[used]);
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const std = Math.sqrt(scores.reduce((a, s) => a + (s - mean) * (s - mean), 0) / scores.length) || 1e-6;
+
+  const x0 = Math.max(0, Math.min(GW - 1, Math.floor(box.xPct * GW)));
+  const y0 = Math.max(0, Math.min(GH - 1, Math.floor(box.yPct * GH)));
+  const x1 = Math.max(x0, Math.min(GW - 1, Math.ceil((box.xPct + box.wPct) * GW) - 1));
+  const y1 = Math.max(y0, Math.min(GH - 1, Math.ceil((box.yPct + box.hPct) * GH) - 1));
+  const padX = Math.max(1, Math.round((x1 - x0 + 1) / 2));
+  const padY = Math.max(1, Math.round((y1 - y0 + 1) / 2));
+  let inSum = 0;
+  let inN = 0;
+  let ringSum = 0;
+  let ringN = 0;
+  for (let gy = Math.max(0, y0 - padY); gy <= Math.min(GH - 1, y1 + padY); gy++) {
+    for (let gx = Math.max(0, x0 - padX); gx <= Math.min(GW - 1, x1 + padX); gx++) {
+      const sc = scores[gy * GW + gx];
+      if (gx >= x0 && gx <= x1 && gy >= y0 && gy <= y1) {
+        inSum += sc;
+        inN++;
+      } else {
+        ringSum += sc;
+        ringN++;
+      }
+    }
+  }
+  // A box covering the whole frame has no ring, so no relative contrast.
+  const avgZ = inN && ringN ? (inSum / inN - ringSum / ringN) / std : 0;
+  return {
+    xPct: round3(box.xPct),
+    yPct: round3(box.yPct),
+    wPct: round3(box.wPct),
+    hPct: round3(box.hPct),
+    polarity: avgZ >= 0 ? 'hot' : 'cold',
+    relativeIntensity: round3(Math.max(-1, Math.min(1, avgZ / 3))),
+    areaPct: round3(box.wPct * box.hPct),
+    locationLabel: locationLabel(box.xPct + box.wPct / 2, box.yPct + box.hPct / 2),
+  };
+}
+
+/** Re-draw the annotated copy from current findings so the report stays in sync after edits. */
+export async function renderAnnotatedImage(
+  image: LoadedImage,
+  regions: (RegionBox & { polarity: 'hot' | 'cold' })[],
+): Promise<string> {
+  const img = await loadImage(image.dataUrl);
+  return renderAnnotated(img, image.width || img.width, image.height || img.height, regions);
 }
