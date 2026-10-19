@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import type { RegionBox } from '@/lib/thermalAnalysis';
 
 /** Minimal box shape the viewer needs — matches ThermalAnomaly / DetectedRegion. */
 export interface ViewerBox {
@@ -20,8 +21,17 @@ interface ThermalImageViewerProps {
   onActiveChange?: (index: number | null) => void;
   /** Show the before/after comparison slider tab. */
   enableCompare?: boolean;
+  /** When true, dragging on the image draws a new region instead of selecting boxes. */
+  drawMode?: boolean;
+  /** A drawn-but-not-yet-saved region, shown dashed. */
+  draftBox?: RegionBox | null;
+  /** Called when the user finishes drawing a region in draw mode. */
+  onDraw?: (box: RegionBox) => void;
   className?: string;
 }
+
+/** Ignore accidental clicks: a drawn box must cover at least this fraction per side. */
+const MIN_DRAW_PCT = 0.015;
 
 type Mode = 'interactive' | 'compare';
 
@@ -42,14 +52,39 @@ export default function ThermalImageViewer({
   activeIndex,
   onActiveChange,
   enableCompare = true,
+  drawMode = false,
+  draftBox = null,
+  onDraw,
   className,
 }: ThermalImageViewerProps) {
   const [mode, setMode] = useState<Mode>('interactive');
+  const drawRef = useRef<HTMLDivElement>(null);
+  const drawStart = useRef<{ x: number; y: number } | null>(null);
+  const [dragBox, setDragBox] = useState<RegionBox | null>(null);
   const [slider, setSlider] = useState(50);
   const frameRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
   const canCompare = enableCompare && Boolean(annotatedImage);
+  const view: Mode = drawMode ? 'interactive' : mode;
+
+  const pointPct = (clientX: number, clientY: number) => {
+    const rect = drawRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)),
+    };
+  };
+
+  const boxFrom = (a: { x: number; y: number }, b: { x: number; y: number }): RegionBox => ({
+    xPct: Math.min(a.x, b.x),
+    yPct: Math.min(a.y, b.y),
+    wPct: Math.abs(a.x - b.x),
+    hPct: Math.abs(a.y - b.y),
+  });
+
+  const shownDraft = dragBox ?? draftBox;
 
   const updateSlider = useCallback((clientX: number) => {
     const el = frameRef.current;
@@ -68,7 +103,7 @@ export default function ThermalImageViewer({
             onClick={() => setMode('interactive')}
             className={cn(
               'rounded-[var(--c3-style-border-radius-4)] px-3 py-1 text-c3-regular-label-l3',
-              mode === 'interactive'
+              view === 'interactive'
                 ? 'bg-[var(--c3-style-basic-bg-accent)] text-[var(--c3-style-basic-fg-accent)]'
                 : 'text-[var(--c3-style-basic-fg-secondary)]',
             )}
@@ -78,9 +113,11 @@ export default function ThermalImageViewer({
           <button
             type="button"
             onClick={() => setMode('compare')}
+            // Kept visible (disabled) while drawing so the image does not jump.
+            disabled={drawMode}
             className={cn(
-              'rounded-[var(--c3-style-border-radius-4)] px-3 py-1 text-c3-regular-label-l3',
-              mode === 'compare'
+              'rounded-[var(--c3-style-border-radius-4)] px-3 py-1 text-c3-regular-label-l3 disabled:opacity-40',
+              view === 'compare'
                 ? 'bg-[var(--c3-style-basic-bg-accent)] text-[var(--c3-style-basic-fg-accent)]'
                 : 'text-[var(--c3-style-basic-fg-secondary)]',
             )}
@@ -90,7 +127,7 @@ export default function ThermalImageViewer({
         </div>
       ) : null}
 
-      {mode === 'interactive' ? (
+      {view === 'interactive' ? (
         <div className="relative w-full select-none overflow-hidden rounded-[var(--c3-style-border-radius-6)] border border-[var(--c3-style-basic-border-border)] bg-black">
           <img src={originalImage} alt="Thermal inspection" className="block w-full" />
           <div className="absolute inset-0">
@@ -122,6 +159,42 @@ export default function ThermalImageViewer({
               );
             })}
           </div>
+          {shownDraft ? (
+            <div
+              className="hl-box hl-box-draft pointer-events-none"
+              style={{
+                left: `${shownDraft.xPct * 100}%`,
+                top: `${shownDraft.yPct * 100}%`,
+                width: `${shownDraft.wPct * 100}%`,
+                height: `${shownDraft.hPct * 100}%`,
+              }}
+            />
+          ) : null}
+          {drawMode ? (
+            <div
+              ref={drawRef}
+              role="application"
+              aria-label="Drag to draw a region for AI interpretation"
+              className="absolute inset-0 cursor-crosshair touch-none"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                const p = pointPct(e.clientX, e.clientY);
+                drawStart.current = p;
+                setDragBox({ xPct: p.x, yPct: p.y, wPct: 0, hPct: 0 });
+              }}
+              onPointerMove={(e) => {
+                if (drawStart.current) setDragBox(boxFrom(drawStart.current, pointPct(e.clientX, e.clientY)));
+              }}
+              onPointerUp={(e) => {
+                const start = drawStart.current;
+                drawStart.current = null;
+                setDragBox(null);
+                if (!start) return;
+                const box = boxFrom(start, pointPct(e.clientX, e.clientY));
+                if (box.wPct >= MIN_DRAW_PCT && box.hPct >= MIN_DRAW_PCT) onDraw?.(box);
+              }}
+            />
+          ) : null}
         </div>
       ) : (
         <div

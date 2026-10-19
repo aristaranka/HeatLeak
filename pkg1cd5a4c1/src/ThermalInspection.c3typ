@@ -74,6 +74,12 @@ entity type ThermalInspection schema name 'HL_INSPECTION' {
   annotatedImage: string
 
   /**
+   * The camera color palette the inspector selected ('auto', 'iron', 'rainbow',
+   * 'white-hot', 'black-hot'). Detection maps colors to apparent warmth with it.
+   */
+  palette: string
+
+  /**
    * Pixel width of the uploaded image.
    */
   imageWidth: int
@@ -139,4 +145,27 @@ entity type ThermalInspection schema name 'HL_INSPECTION' {
    * @return This inspection, updated with its new findings.
    */
   analyze: member function(regionsJson: string): ThermalInspection py
+
+  /**
+   * Interpret one region that the inspector drew by hand on the image. The client
+   * measures the region's relative contrast from the actual pixels and passes it
+   * here; the LLM writes the same cautious finding fields as {@link #analyze}. The
+   * new {@link ThermalAnomaly} is appended after existing findings with
+   * `source = 'manual'`, and {@link ThermalInspection#anomalyCount} is updated.
+   *
+   * @param regionJson JSON object with `xPct`,`yPct`,`wPct`,`hPct`, `polarity`,
+   *   `relativeIntensity`, `areaPct`, `locationLabel`, and an optional
+   *   `inspectorNote` describing what the inspector suspects.
+   * @return The newly created anomaly.
+   */
+  interpretRegion: member function(regionJson: string): ThermalAnomaly py
+
+  /**
+   * Remove one anomaly from this inspection, renumber the remaining findings so
+   * marker labels stay contiguous, and update {@link ThermalInspection#anomalyCount}.
+   *
+   * @param anomalyId id of the {@link ThermalAnomaly} to remove.
+   * @return This inspection with its remaining anomalies.
+   */
+  removeAnomaly: member function(anomalyId: string): ThermalInspection py
 }

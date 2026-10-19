@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import { Spinner } from '@/components/ui/spinner';
 import CautionNotice from '@/components/heatleak/CautionNotice';
+import { ManualBadge } from '@/components/heatleak/AnomalyViews';
 import DemoBadge from '@/components/heatleak/DemoBadge';
 import {
   fetchInspection,
@@ -221,6 +222,7 @@ export default function ReportDetail() {
                         {i + 1}
                       </span>
                       <span className="text-c3-bold-body-p2 text-[var(--c3-style-basic-fg-primary)]">{a.category}</span>
+                      {a.source === 'manual' ? <ManualBadge /> : null}
                     </div>
                     <Badge appearance={priorityAppearance(a.priority)} variant="soft" size="sm">
                       {a.priority}
@@ -246,6 +248,12 @@ export default function ReportDetail() {
                       <dt className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">Suggested follow-up</dt>
                       <dd className="text-[var(--c3-style-basic-fg-primary)]">{a.verificationStep}</dd>
                     </div>
+                    {a.inspectorNote ? (
+                      <div>
+                        <dt className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">Inspector note</dt>
+                        <dd className="text-[var(--c3-style-basic-fg-primary)]">{a.inspectorNote}</dd>
+                      </div>
+                    ) : null}
                   </dl>
                 </li>
               ))}
