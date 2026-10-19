@@ -46,10 +46,10 @@ import re
 # Which multimodal message shape the C3 completion client passes through to the
 # model. "auto" tries "openai" then "anthropic" and falls back to the text path
 # if both fail; set it to the probe's answer so the demo makes exactly one call.
-VISION_SHAPE = "auto"  # "openai" | "anthropic" | "off" | "auto"
+VISION_SHAPE = "openai"  # "openai" | "anthropic" | "off" | "auto"  (probe: VISION ON via openai)
 
 MAX_ADDITIONAL_FINDINGS = 2
-MAX_TOKENS = 3000
+MAX_TOKENS = 8000  # the full reply for 5 candidates ran past 3000
 CONFIG_KEY = "default-completions"
 
 CATEGORIES = [
@@ -85,6 +85,7 @@ SYSTEM_PROMPT = (
     "data), camera palettes differ, reflections and emissivity change apparent "
     "temperature, and a thermal anomaly is not a confirmed defect. State this once, in "
     "summary, not in every field.\n\n"
+    "Be brief: each prose field is one sentence of at most 30 words.\n\n"
     "Return strict JSON only, no prose outside it, shaped exactly as:\n"
     "{\"summary\": \"2-4 sentences\", \"priority\": \"Low|Medium|High\",\n"
     " \"candidates\": [{\"index\": 0, \"verdict\": \"keep|reject\", \"rejectionReason\": \"\",\n"
