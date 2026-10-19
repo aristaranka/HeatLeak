@@ -84,6 +84,9 @@ pyrightconfig.json
 
 # Node.js
 node_modules/
+
+# Vite's generated dependency cache
+**/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
