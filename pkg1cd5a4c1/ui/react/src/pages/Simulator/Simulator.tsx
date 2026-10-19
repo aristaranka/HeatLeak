@@ -519,9 +519,6 @@ export default function Simulator() {
                   </table>
                 </div>
               </Card>
-              <p className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
-                Payback is shown only when annual savings are positive; those rows are left out of the chart.
-              </p>
             </>
           )}
         </div>

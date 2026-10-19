@@ -26,11 +26,6 @@ const ENERGY_STAR_METHODOLOGY = {
   sourceUrl: 'https://www.energystar.gov/saveathome/seal_insulate/methodology',
 };
 
-const ENERGY_STAR_WINDOW_DOOR = {
-  sourceLabel: 'ENERGY STAR, Sealing Behind Window & Door Trim',
-  sourceUrl: 'https://www.energystar.gov/saveathome/seal_insulate/sealing-window-door',
-};
-
 const ENERGY_STAR_INSPECTIONS = {
   sourceLabel: 'ENERGY STAR, DIY Checks & Inspections',
   sourceUrl: 'https://www.energystar.gov/saveathome/seal_insulate/identify-problems-you-want-fix/diy-checks-inspections',
@@ -51,7 +46,7 @@ export const RECOMMENDATIONS: Record<string, Recommendation[]> = {
       intervention: 'Window weatherstripping',
       typicalCostUsd: [100, 400],
       savingsPctOfHeatingCooling: [2, 5],
-      ...ENERGY_STAR_WINDOW_DOOR,
+      ...ENERGY_STAR_METHODOLOGY,
       note: "One window's share of whole-house air-sealing savings",
     },
     {
@@ -67,7 +62,7 @@ export const RECOMMENDATIONS: Record<string, Recommendation[]> = {
       intervention: 'Door seal replacement',
       typicalCostUsd: [50, 250],
       savingsPctOfHeatingCooling: [1, 4],
-      ...ENERGY_STAR_WINDOW_DOOR,
+      ...ENERGY_STAR_METHODOLOGY,
       note: 'Per door',
     },
   ],
