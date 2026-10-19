@@ -127,6 +127,7 @@ export default function Reports() {
                   <Badge appearance={statusAppearance(i.status)} variant="soft" size="sm">
                     {i.status}
                   </Badge>
+                  {i.explanationSource ? <span className="hl-tag">{i.explanationSource}</span> : null}
                 </button>
               </li>
             ))}
