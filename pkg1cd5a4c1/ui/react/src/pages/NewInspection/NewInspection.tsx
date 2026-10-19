@@ -211,6 +211,7 @@ export default function NewInspection() {
                   key={s.file}
                   variant="outline"
                   size="sm"
+                  className="h-auto max-w-full whitespace-normal py-1.5 text-left"
                   disabled={busy}
                   onClick={() => void loadSample(s)}
                 >

@@ -13,9 +13,11 @@
  * apparent temperature; without radiometric metadata absolute temperatures cannot
  * be established. These are screening observations, not confirmed defects.
  *
- * Tuning (checked on a synthetic ironbow scene only; re-tune on the real samples): detection grid
- * 56 wide, thresholds [1.25, 1.0, 0.8, 0.65] until 3+ regions, bbox area cap 30% with re-test at T+0.75 then T+1.5, then
- * drop, same-polarity IoU merge > 0.3, MAX_REGIONS 6, palette ramps sampled to 32 stops.
+ * Tuning (checked on the four public/samples images): detection grid 56 wide, thresholds
+ * [1.25, 1.0, 0.8, 0.65] lowered until 3+ regions turn up, bbox area cap 30% with re-test at
+ * T+0.75 then T+1.5 and then drop, same-polarity IoU merge > 0.3, MAX_REGIONS 6, palette ramps
+ * sampled to 32 stops. Result: 3-6 candidates per sample; hero is house-uninsulated-wall.jpg
+ * (cold sky regions upper-left and upper-center, plus one lower-right patch).
  */
 
 export type Palette = 'auto' | 'ironbow' | 'rainbow' | 'whitehot' | 'blackhot';
