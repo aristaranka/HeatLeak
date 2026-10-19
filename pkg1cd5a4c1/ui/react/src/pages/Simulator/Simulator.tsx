@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ResponsiveContainer,
   BarChart,
@@ -10,14 +10,16 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { Plus, Trash2, Calculator, Save } from 'lucide-react';
+import { Plus, Trash2, Calculator, Save, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { Spinner } from '@/components/ui/spinner';
+import { Badge } from '@/components/ui/badge';
 import {
   computeScenario,
+  fetchInspection,
   fetchScenarios,
   saveScenario,
   removeScenario,
@@ -25,7 +27,10 @@ import {
   formatNumber,
   INTERVENTIONS,
   RepairScenarioResult,
+  ReviewedAnomaly,
+  ThermalInspection,
 } from '@/lib/heatleak';
+import { suggestedSteps, midpoint, isInvestigation } from '@/lib/recommendations';
 
 interface Row {
   key: string;
@@ -37,7 +42,13 @@ interface Row {
   electricityPricePerKwh: number;
   emissionsFactorKgPerKwh: number;
   result: RepairScenarioResult;
+  /** Prefilled from an inspection's findings and not yet saved or edited. */
+  prefilled?: boolean;
+  /** Midpoint share of annual heating + cooling energy (0..1), so kWh follows the annual input. */
+  savingsShare?: number;
 }
+
+const DEFAULT_ANNUAL_KWH = '8000';
 
 const COLORS = ['#22d3ee', '#14b8a6', '#f59e0b', '#a3e635', '#ef4444'];
 
@@ -47,9 +58,13 @@ export default function Simulator() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Arriving from a finding's "Simulate a repair" link prefills the form.
+  // Arriving from a finding's "Simulate a repair" link prefills the form;
+  // arriving from a report (?inspection=<id>) prefills rows from its findings.
   const [params] = useSearchParams();
   const fromFinding = params.get('name');
+  const inspectionId = params.get('inspection');
+  const [inspection, setInspection] = useState<ThermalInspection | null>(null);
+  const [annualKwh, setAnnualKwh] = useState(DEFAULT_ANNUAL_KWH);
   const requested = params.get('intervention');
   const [name, setName] = useState(fromFinding ?? '');
   const [intervention, setIntervention] = useState<string>(
@@ -63,7 +78,7 @@ export default function Simulator() {
   useEffect(() => {
     (async () => {
       try {
-        const saved = await fetchScenarios();
+        const saved = await fetchScenarios(inspectionId ? { inspectionId } : undefined);
         const computed = await Promise.all(
           saved.map(async (s) => {
             const result = await computeScenario(
@@ -86,14 +101,93 @@ export default function Simulator() {
             return row;
           }),
         );
-        setRows(computed);
+        let prefilled: Row[] = [];
+        if (inspectionId) {
+          const insp = await fetchInspection(inspectionId);
+          if (!insp) throw new Error(`Inspection ${inspectionId} not found.`);
+          setInspection(insp);
+          prefilled = await prefillFromFindings(insp, new Set(computed.map((r) => r.name)));
+        }
+        setRows([...computed, ...prefilled]);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load saved scenarios.');
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+    // Runs once per inspection in the URL; later edits to the form inputs must not re-prefill.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspectionId]);
+
+  /** One unsaved row per distinct recommended intervention across the kept findings. */
+  const prefillFromFindings = async (insp: ThermalInspection, existingNames: Set<string>): Promise<Row[]> => {
+    const kept = ([...(insp.anomalies ?? [])] as ReviewedAnomaly[])
+      .filter((a) => !a.rejected)
+      .sort((a, b) => (a.anomalyIndex ?? 0) - (b.anomalyIndex ?? 0));
+    const steps = suggestedSteps(kept.map((a, i) => ({ category: a.category, number: i + 1 })));
+    const kwh = Number(annualKwh) || 0;
+    const inp = { electricityPricePerKwh: Number(price) || 0, emissionsFactorKgPerKwh: Number(emissions) || 0 };
+    const rowsFor = steps
+      .map((s) => {
+        const nums = s.findingNumbers.map((n) => `#${n}`).join(', ');
+        const share = isInvestigation(s) ? 0 : midpoint(s.savingsPctOfHeatingCooling) / 100;
+        return {
+          name: `${s.intervention} (${s.findingNumbers.length > 1 ? 'findings' : 'finding'} ${nums})`,
+          interventionType: s.intervention,
+          repairCost: midpoint(s.typicalCostUsd),
+          annualEnergySavingsKwh: Math.round(kwh * share),
+          savingsShare: share,
+        };
+      })
+      .filter((r) => !existingNames.has(r.name));
+    return Promise.all(
+      rowsFor.map(async (r, i) => ({
+        ...r,
+        ...inp,
+        key: `prefill-${i}-${r.interventionType}`,
+        prefilled: true,
+        result: await computeScenario(r.repairCost, r.annualEnergySavingsKwh, inp.electricityPricePerKwh, inp.emissionsFactorKgPerKwh),
+      })),
+    );
+  };
+
+  // Prefilled rows follow the annual heating + cooling input until they are saved or edited.
+  useEffect(() => {
+    const kwh = Number(annualKwh) || 0;
+    let cancelled = false;
+    (async () => {
+      const targets = rows.filter(
+        (r) => r.prefilled && r.savingsShare && Math.round(kwh * r.savingsShare) !== r.annualEnergySavingsKwh,
+      );
+      if (!targets.length) return;
+      try {
+        const updated = await Promise.all(
+          targets.map(async (r) => {
+            const annualEnergySavingsKwh = Math.round(kwh * (r.savingsShare ?? 0));
+            const result = await computeScenario(
+              r.repairCost,
+              annualEnergySavingsKwh,
+              r.electricityPricePerKwh,
+              r.emissionsFactorKgPerKwh,
+            );
+            return { ...r, annualEnergySavingsKwh, result };
+          }),
+        );
+        if (cancelled) return;
+        const byKey = new Map(updated.map((r) => [r.key, r]));
+        setRows((prev) => prev.map((r) => byKey.get(r.key) ?? r));
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to recompute scenarios.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Only the annual input drives this; rows changing because of it must not retrigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annualKwh]);
+
+  const inspectionLink = inspectionId ? { inspection: { id: inspectionId } } : {};
 
   const buildInputs = () => ({
     repairCost: Number(repairCost) || 0,
@@ -120,6 +214,7 @@ export default function Simulator() {
           name: label,
           interventionType: intervention,
           ...inp,
+          ...inspectionLink,
         });
         persistedId = saved.id;
       }
@@ -142,6 +237,40 @@ export default function Simulator() {
     }
   };
 
+  const handleSaveRow = async (row: Row) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await saveScenario({
+        name: row.name,
+        interventionType: row.interventionType,
+        repairCost: row.repairCost,
+        annualEnergySavingsKwh: row.annualEnergySavingsKwh,
+        electricityPricePerKwh: row.electricityPricePerKwh,
+        emissionsFactorKgPerKwh: row.emissionsFactorKgPerKwh,
+        ...inspectionLink,
+      });
+      setRows((prev) =>
+        prev.map((r) => (r.key === row.key ? { ...r, key: saved.id, persistedId: saved.id, prefilled: false } : r)),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save scenario.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Move an unsaved row into the form so its assumptions can be changed. */
+  const handleEditRow = (row: Row) => {
+    setName(row.name);
+    if (INTERVENTIONS.includes(row.interventionType)) setIntervention(row.interventionType);
+    setRepairCost(String(row.repairCost));
+    setSavingsKwh(String(row.annualEnergySavingsKwh));
+    setPrice(String(row.electricityPricePerKwh));
+    setEmissions(String(row.emissionsFactorKgPerKwh));
+    setRows((prev) => prev.filter((r) => r.key !== row.key));
+  };
+
   const handleRemove = async (row: Row) => {
     if (row.persistedId) {
       try {
@@ -153,7 +282,8 @@ export default function Simulator() {
     setRows((prev) => prev.filter((r) => r.key !== row.key));
   };
 
-  const chartData = rows.map((r) => ({
+  // Rows without a payback (no positive savings, e.g. diagnostic investigations) stay in the table only.
+  const chartData = rows.filter((r) => r.result.simplePaybackYears != null).map((r) => ({
     name: r.name.length > 16 ? `${r.name.slice(0, 15)}…` : r.name,
     'Annual savings ($)': Math.round(r.result.annualCostSavings),
     'CO₂ avoided (kg)': Math.round(r.result.annualEmissionsReductionKg),
@@ -171,9 +301,17 @@ export default function Simulator() {
     <div className="mx-auto flex max-w-[1200px] flex-col gap-6 p-6">
       <div>
         <h1 className="text-c3-bold-heading-h4 text-[var(--c3-style-basic-fg-primary)]">Energy impact simulator</h1>
+        {inspectionId ? (
+          <p className="mt-1 text-c3-regular-body-p2 text-[var(--c3-style-basic-fg-primary)]">
+            Scenarios for {inspection?.buildingName || inspection?.name || 'this inspection'} ·{' '}
+            <Link to={`/reports/${inspectionId}`} className="text-[var(--hl-cyan)] underline-offset-2 hover:underline">
+              View report
+            </Link>
+          </p>
+        ) : null}
         <p className="mt-1 text-c3-regular-body-p2 text-[var(--c3-style-basic-fg-secondary)]">
-          Compare hypothetical repair interventions. All figures are illustrative estimates based on the inputs you
-          provide — not measured results or financial advice.
+          Hypothetical scenarios from your assumptions and published typical ranges. Nothing here is measured from a
+          thermal image.
         </p>
       </div>
 
@@ -184,6 +322,15 @@ export default function Simulator() {
             <CardTitle>Add a scenario</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="s-annual" className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                Annual heating + cooling energy (kWh/yr)
+              </label>
+              <Input id="s-annual" type="number" value={annualKwh} onChange={(e) => setAnnualKwh(e.target.value)} />
+              <span className="text-[10px] text-[var(--c3-style-basic-fg-secondary)]">
+                Typical US home; edit for this building
+              </span>
+            </div>
             {fromFinding ? (
               <p className="rounded-[var(--c3-style-border-radius-4)] bg-[var(--hl-cyan-soft)] p-2 text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-primary)]">
                 Prefilled from <strong>{fromFinding}</strong>. Replace the cost and savings with your own estimates —
@@ -215,7 +362,7 @@ export default function Simulator() {
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="s-kwh" className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
-                Annual energy savings (kWh)
+                Annual energy savings (kWh/yr)
               </label>
               <Input id="s-kwh" type="number" value={savingsKwh} onChange={(e) => setSavingsKwh(e.target.value)} />
             </div>
@@ -305,7 +452,14 @@ export default function Simulator() {
                             <div className="flex items-center gap-2">
                               <span className="size-2.5 shrink-0 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
                               <div>
-                                <div className="text-c3-bold-body-p3">{r.name}</div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-c3-bold-body-p3">{r.name}</span>
+                                  {r.prefilled ? (
+                                    <Badge appearance="info" variant="soft" size="sm">
+                                      from finding
+                                    </Badge>
+                                  ) : null}
+                                </div>
                                 <div className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
                                   {r.interventionType}
                                 </div>
@@ -323,15 +477,41 @@ export default function Simulator() {
                             {formatNumber(r.result.annualEmissionsReductionKg)} kg
                           </td>
                           <td className="p-3 text-right">
-                            <Button
-                              variant="ghost"
-                              appearance="danger"
-                              size="icon-sm"
-                              aria-label={`Remove ${r.name}`}
-                              onClick={() => handleRemove(r)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              {!r.persistedId ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    appearance="secondary"
+                                    size="icon-sm"
+                                    aria-label={`Edit ${r.name}`}
+                                    onClick={() => handleEditRow(r)}
+                                    disabled={busy}
+                                  >
+                                    <Pencil className="size-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    appearance="secondary"
+                                    size="icon-sm"
+                                    aria-label={`Save ${r.name}`}
+                                    onClick={() => handleSaveRow(r)}
+                                    disabled={busy}
+                                  >
+                                    <Save className="size-4" />
+                                  </Button>
+                                </>
+                              ) : null}
+                              <Button
+                                variant="ghost"
+                                appearance="danger"
+                                size="icon-sm"
+                                aria-label={`Remove ${r.name}`}
+                                onClick={() => handleRemove(r)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -340,8 +520,7 @@ export default function Simulator() {
                 </div>
               </Card>
               <p className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
-                Payback is shown only when annual savings are positive. These are hypothetical estimates; actual results
-                depend on building conditions, usage, weather and workmanship.
+                Payback is shown only when annual savings are positive; those rows are left out of the chart.
               </p>
             </>
           )}
