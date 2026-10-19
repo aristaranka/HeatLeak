@@ -97,8 +97,21 @@ entity type ThermalAnomaly schema name 'HL_ANOMALY' {
   priority: !string
 
   /**
-   * How this region was found: 'auto' (pixel-contrast detection) or 'manual'
-   * (drawn by the inspector and then interpreted by the AI). Null means 'auto'.
+   * True when the model judged this candidate is not a building-envelope pattern
+   * (sky, vegetation, a reflection, …). The box is kept so the UI can show it greyed.
+   */
+  rejected: boolean
+
+  /**
+   * One sentence from the model naming what the rejected region actually is, e.g.
+   * 'Open sky above the roofline, not a building surface.'
+   */
+  rejectionReason: string
+
+  /**
+   * How this region was found: 'cv' = proposed by the client pixel scout (null and
+   * the older 'auto' mean the same), 'vision' = added by the model after reviewing
+   * the image, 'manual' = drawn by the inspector and then interpreted by the AI.
    */
   source: string
 
