@@ -12,26 +12,28 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { ScanLine, AlertTriangle, Building2, ClipboardCheck, FlaskConical, Sparkles } from 'lucide-react';
+import { ScanLine, AlertTriangle, Building2, ClipboardCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import CautionNotice from '@/components/heatleak/CautionNotice';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import DemoBadge from '@/components/heatleak/DemoBadge';
 import {
-  fetchInspections,
+  fetchInspectionsLight,
   fetchBuildings,
-  fetchAnomalies,
+  fetchAnomaliesWithInspection,
   needsFollowUp,
   statusAppearance,
+  priorityAppearance,
+  priorityRank,
   formatDate,
   INSPECTION_STATUSES,
   ThermalInspection,
   Building,
   ThermalAnomaly,
+  Priority,
 } from '@/lib/heatleak';
-import { loadDemoData, DemoProgress } from '@/lib/thermalDemo';
 
 const STATUS_COLORS: Record<string, string> = {
   'Needs Review': '#f59e0b',
@@ -66,6 +68,25 @@ function Metric({ icon, label, value, caption, accent }: MetricProps) {
   );
 }
 
+/** One triage-queue row: a building with at least one inspection. */
+interface QueueRow {
+  key: string;
+  buildingName: string;
+  buildingType?: string;
+  /** Non-rejected anomalies on inspections still open (Needs Review / Under Investigation). */
+  openFindings: number;
+  /** Highest priority across those open inspections; absent when nothing is open. */
+  highestPriority?: Priority;
+  lastInspected?: string;
+  inspectionCount: number;
+  latestInspectionId: string;
+}
+
+function time(iso?: string): number {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return isNaN(t) ? 0 : t;
+}
+
 export default function Overview() {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<ThermalInspection[]>([]);
@@ -73,14 +94,16 @@ export default function Overview() {
   const [anomalies, setAnomalies] = useState<ThermalAnomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [demoBusy, setDemoBusy] = useState(false);
-  const [demoProgress, setDemoProgress] = useState<DemoProgress | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [insp, bldg, anom] = await Promise.all([fetchInspections(), fetchBuildings(), fetchAnomalies()]);
+      const [insp, bldg, anom] = await Promise.all([
+        fetchInspectionsLight(),
+        fetchBuildings(),
+        fetchAnomaliesWithInspection(),
+      ]);
       setInspections(insp);
       setBuildings(bldg);
       setAnomalies(anom);
@@ -95,22 +118,9 @@ export default function Overview() {
     void load();
   }, [load]);
 
-  const handleLoadDemo = async () => {
-    setDemoBusy(true);
-    setError(null);
-    try {
-      await loadDemoData((p) => setDemoProgress(p));
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate demonstration data.');
-    } finally {
-      setDemoBusy(false);
-      setDemoProgress(null);
-    }
-  };
-
   const stats = useMemo(() => {
     const totalInspections = inspections.length;
+    // anomalyCount counts kept (non-rejected) findings only.
     const totalAnomalies = inspections.reduce((s, i) => s + (i.anomalyCount ?? 0), 0);
     const inspectedBuildingIds = new Set(
       inspections.map((i) => i.building?.id).filter((x): x is string => Boolean(x)),
@@ -124,7 +134,7 @@ export default function Overview() {
 
     const priorityDist = (['High', 'Medium', 'Low'] as const).map((p) => ({
       name: p,
-      value: anomalies.filter((a) => a.priority === p).length,
+      value: anomalies.filter((a) => !a.rejected && a.priority === p).length,
     }));
 
     return {
@@ -135,6 +145,54 @@ export default function Overview() {
       statusDist,
       priorityDist,
     };
+  }, [inspections, anomalies]);
+
+  // Buildings ranked by where a crew should go first: priority, then open findings, then recency.
+  const queue = useMemo<QueueRow[]>(() => {
+    const openInspectionIds = new Set(inspections.filter((i) => needsFollowUp(i.status)).map((i) => i.id));
+    const openFindingsByInspection = new Map<string, number>();
+    for (const a of anomalies) {
+      const inspectionId = a.inspection?.id;
+      if (!inspectionId || a.rejected || !openInspectionIds.has(inspectionId)) continue;
+      openFindingsByInspection.set(inspectionId, (openFindingsByInspection.get(inspectionId) ?? 0) + 1);
+    }
+
+    const groups = new Map<string, ThermalInspection[]>();
+    for (const i of inspections) {
+      const key = i.building?.id ?? `name:${i.buildingName ?? i.name}`;
+      const list = groups.get(key);
+      if (list) list.push(i);
+      else groups.set(key, [i]);
+    }
+
+    const rows: QueueRow[] = [];
+    groups.forEach((list, key) => {
+      const byDate = [...list].sort((a, b) => time(b.inspectionDate) - time(a.inspectionDate));
+      const latest = byDate[0];
+      const open = list.filter((i) => needsFollowUp(i.status));
+      const highestPriority = open.reduce<Priority | undefined>(
+        (best, i) => (priorityRank(i.priority) > priorityRank(best) ? i.priority : best),
+        undefined,
+      );
+      rows.push({
+        key,
+        buildingName: latest.building?.name || latest.buildingName || latest.name,
+        buildingType: byDate.find((i) => i.buildingType)?.buildingType,
+        openFindings: open.reduce((s, i) => s + (openFindingsByInspection.get(i.id) ?? 0), 0),
+        highestPriority,
+        lastInspected: latest.inspectionDate,
+        inspectionCount: list.length,
+        latestInspectionId: latest.id,
+      });
+    });
+
+    rows.sort(
+      (a, b) =>
+        priorityRank(b.highestPriority) - priorityRank(a.highestPriority) ||
+        b.openFindings - a.openFindings ||
+        time(b.lastInspected) - time(a.lastInspected),
+    );
+    return rows;
   }, [inspections, anomalies]);
 
   const recent = inspections.slice(0, 6);
@@ -166,22 +224,8 @@ export default function Overview() {
             <Button leadingIcon={<ScanLine className="size-4" />} onClick={() => navigate('/inspections/new')}>
               New inspection
             </Button>
-            <Button
-              variant="outline"
-              appearance="secondary"
-              leadingIcon={demoBusy ? <Spinner size="sm" /> : <FlaskConical className="size-4" />}
-              onClick={handleLoadDemo}
-              disabled={demoBusy}
-            >
-              {demoBusy ? 'Generating…' : 'Load demo data'}
-            </Button>
           </div>
         </div>
-        {demoBusy && demoProgress ? (
-          <div className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
-            Generating &amp; analyzing demo image {demoProgress.index + 1} of {demoProgress.total}: {demoProgress.label}
-          </div>
-        ) : null}
       </div>
 
       {error ? (
@@ -194,18 +238,10 @@ export default function Overview() {
         <Card className="items-center gap-3 py-12 text-center">
           <Sparkles className="size-8 text-[var(--hl-cyan)]" aria-hidden />
           <CardTitle>No inspections yet</CardTitle>
-          <CardContent className="max-w-md">
-            Upload your first thermal image, or load the demonstration dataset to explore the full workflow with three
-            clearly-labeled fictional scenarios.
-          </CardContent>
-          <div className="flex gap-2">
-            <Button leadingIcon={<ScanLine className="size-4" />} onClick={() => navigate('/inspections/new')}>
-              Start an inspection
-            </Button>
-            <Button variant="outline" appearance="secondary" onClick={handleLoadDemo} disabled={demoBusy}>
-              Load demo data
-            </Button>
-          </div>
+          <CardContent className="max-w-md">Start one to populate the queue.</CardContent>
+          <Button leadingIcon={<ScanLine className="size-4" />} onClick={() => navigate('/inspections/new')}>
+            Start an inspection
+          </Button>
         </Card>
       ) : (
         <>
@@ -241,7 +277,61 @@ export default function Overview() {
             />
           </div>
 
-          <CautionNotice compact />
+          {/* Triage queue */}
+          <Card className="gap-3">
+            <CardHeader>
+              <CardTitle>Triage queue</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {queue.length === 0 ? (
+                <p className="text-c3-regular-body-p3 text-[var(--c3-style-basic-fg-secondary)]">
+                  No inspections yet. Start one to populate the queue.
+                </p>
+              ) : (
+                <Table size="sm" hover>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Building</TableHead>
+                      <TableHead className="hidden md:table-cell">Type</TableHead>
+                      <TableHead className="text-right">Open findings</TableHead>
+                      <TableHead>Highest priority</TableHead>
+                      <TableHead>Last inspected</TableHead>
+                      <TableHead className="hidden text-right md:table-cell">Inspections</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queue.map((r) => (
+                      <TableRow key={r.key}>
+                        <TableCell>
+                          <Link
+                            to={`/analysis/${r.latestInspectionId}`}
+                            className="text-c3-bold-body-p3 text-[var(--c3-style-basic-fg-primary)] hover:text-[var(--c3-style-basic-fg-accent)]"
+                          >
+                            {r.buildingName}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="hidden text-[var(--c3-style-basic-fg-secondary)] md:table-cell">
+                          {r.buildingType ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{r.openFindings}</TableCell>
+                        <TableCell>
+                          {r.highestPriority ? (
+                            <Badge appearance={priorityAppearance(r.highestPriority)} variant="soft" size="sm">
+                              {r.highestPriority}
+                            </Badge>
+                          ) : (
+                            <span className="text-[var(--c3-style-basic-fg-secondary)]">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-[var(--c3-style-basic-fg-secondary)]">{formatDate(r.lastInspected)}</TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">{r.inspectionCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Charts + activity */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -322,9 +412,12 @@ export default function Overview() {
                             {(i.anomalyCount ?? 0) === 1 ? 'y' : 'ies'}
                           </span>
                         </div>
-                        <Badge appearance={statusAppearance(i.status)} variant="soft" size="sm">
-                          {i.status}
-                        </Badge>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <Badge appearance={statusAppearance(i.status)} variant="soft" size="sm">
+                            {i.status}
+                          </Badge>
+                          {i.explanationSource ? <span className="hl-tag">{i.explanationSource}</span> : null}
+                        </div>
                       </Link>
                     </li>
                   ))}

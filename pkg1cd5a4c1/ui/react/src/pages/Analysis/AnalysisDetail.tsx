@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import CautionNotice from '@/components/heatleak/CautionNotice';
 import DemoBadge from '@/components/heatleak/DemoBadge';
 import ThermalImageViewer from '@/components/heatleak/ThermalImageViewer';
 import { AnomalyList, AnomalyPanel } from '@/components/heatleak/AnomalyViews';
@@ -21,6 +20,7 @@ import {
   AnomalyEdit,
   statusAppearance,
   priorityAppearance,
+  explanationSourceLabel,
   formatDateTime,
   INSPECTION_STATUSES,
   InspectionStatus,
@@ -29,6 +29,7 @@ import {
 } from '@/lib/heatleak';
 import { measureRegion, renderAnnotatedImage, LoadedImage, RegionBox } from '@/lib/thermalAnalysis';
 
+// Display order from the backend: kept scout regions, vision additions, then dismissed candidates.
 const sortAnomalies = (list?: ThermalAnomaly[]) =>
   [...(list ?? [])].sort((a, b) => (a.anomalyIndex ?? 0) - (b.anomalyIndex ?? 0));
 
@@ -45,6 +46,7 @@ export default function AnalysisDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<number | null>(null);
+  const [showRejected, setShowRejected] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [draftBox, setDraftBox] = useState<RegionBox | null>(null);
@@ -65,6 +67,13 @@ export default function AnalysisDetail() {
   }, [id]);
 
   const anomalies: ThermalAnomaly[] = useMemo(() => sortAnomalies(inspection?.anomalies), [inspection]);
+  const keptCount = useMemo(() => anomalies.filter((a) => !a.rejected).length, [anomalies]);
+
+  const handleDismissedOpen = (open: boolean) => {
+    setShowRejected(open);
+    // Collapsing the group makes its boxes inert again; drop a dismissed selection so the panel does not dangle.
+    if (!open && active !== null && anomalies[active]?.rejected) setActive(null);
+  };
 
   const storedImage = (insp: ThermalInspection): LoadedImage | null =>
     insp.originalImage
@@ -174,6 +183,8 @@ export default function AnalysisDetail() {
     );
   }
 
+  const explanationLabel = explanationSourceLabel(inspection.explanationSource);
+
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 p-6">
       <div>
@@ -200,8 +211,16 @@ export default function AnalysisDetail() {
             {inspection.buildingType ? `${inspection.buildingType} · ` : ''}
             Analyzed {formatDateTime(inspection.inspectionDate)}
           </p>
+          <p className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+            Screening observations, not a diagnosis.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {explanationLabel ? (
+            <Badge variant="soft" appearance="info">
+              {explanationLabel}
+            </Badge>
+          ) : null}
           <div className="w-52">
             <Combobox
               value={inspection.status ?? null}
@@ -215,8 +234,6 @@ export default function AnalysisDetail() {
           </Button>
         </div>
       </div>
-
-      <CautionNotice />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Left: viewer */}
@@ -249,6 +266,7 @@ export default function AnalysisDetail() {
                 boxes={anomalies}
                 activeIndex={active}
                 onActiveChange={setActive}
+                showRejected={showRejected}
                 drawMode={drawMode && !interpreting}
                 draftBox={draftBox}
                 onDraw={handleDraw}
@@ -348,9 +366,15 @@ export default function AnalysisDetail() {
         <div className="flex flex-col gap-4">
           <div>
             <h2 className="mb-2 text-c3-bold-heading-h6 text-[var(--c3-style-basic-fg-primary)]">
-              Flagged regions ({anomalies.length})
+              Flagged regions ({keptCount})
             </h2>
-            <AnomalyList anomalies={anomalies} activeIndex={active} onActiveChange={setActive} />
+            <AnomalyList
+              anomalies={anomalies}
+              activeIndex={active}
+              onActiveChange={setActive}
+              dismissedOpen={showRejected}
+              onDismissedOpenChange={handleDismissedOpen}
+            />
           </div>
           <AnomalyPanel
             key={active !== null ? anomalies[active]?.id : 'none'}

@@ -9,11 +9,13 @@ import { Spinner } from '@/components/ui/spinner';
 import CautionNotice from '@/components/heatleak/CautionNotice';
 import { ManualBadge } from '@/components/heatleak/AnomalyViews';
 import DemoBadge from '@/components/heatleak/DemoBadge';
+import NextSteps from '@/components/heatleak/NextSteps';
 import {
   fetchInspection,
   updateInspectionStatus,
   statusAppearance,
   priorityAppearance,
+  explanationSourceSentence,
   formatDateTime,
   INSPECTION_STATUSES,
   InspectionStatus,
@@ -50,10 +52,13 @@ export default function ReportDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Display order from the backend: kept scout regions, vision additions, then dismissed candidates.
   const anomalies: ThermalAnomaly[] = useMemo(
     () => [...(inspection?.anomalies ?? [])].sort((a, b) => (a.anomalyIndex ?? 0) - (b.anomalyIndex ?? 0)),
     [inspection],
   );
+  const kept = useMemo(() => anomalies.filter((a) => !a.rejected), [anomalies]);
+  const dismissedCount = anomalies.length - kept.length;
 
   const handleStatus = async (status: string | null) => {
     if (!inspection || !status) return;
@@ -88,6 +93,7 @@ export default function ReportDetail() {
   }
 
   const resolved = inspection.status === 'Resolved' || inspection.status === 'Verified';
+  const explanationSentence = explanationSourceSentence(inspection.explanationSource);
 
   return (
     <div className="mx-auto flex max-w-[900px] flex-col gap-5 p-6">
@@ -139,6 +145,9 @@ export default function ReportDetail() {
             <p className="mt-1 text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
               HeatLeak AI · Report #{inspection.id.slice(-6)}
             </p>
+            {explanationSentence ? (
+              <p className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">{explanationSentence}</p>
+            ) : null}
           </div>
           <div className="flex flex-col items-end gap-1">
             <Badge appearance={statusAppearance(inspection.status)} variant="soft">
@@ -157,7 +166,7 @@ export default function ReportDetail() {
           <Field label="Building" value={inspection.buildingName || '—'} />
           <Field label="Type" value={inspection.buildingType || '—'} />
           <Field label="Date" value={formatDateTime(inspection.inspectionDate)} />
-          <Field label="Findings" value={inspection.anomalyCount ?? anomalies.length} />
+          <Field label="Findings" value={inspection.anomalyCount ?? kept.length} />
           <Field
             label="Indoor temp"
             value={typeof inspection.indoorTempC === 'number' ? `${inspection.indoorTempC} °C` : '—'}
@@ -200,18 +209,20 @@ export default function ReportDetail() {
 
         <CautionNotice />
 
-        {/* Findings */}
+        {/* Findings — kept candidates only; dismissed ones are summarised in one line below */}
         <div>
           <h2 className="mb-2 text-c3-bold-heading-h6 text-[var(--c3-style-basic-fg-primary)]">
-            Detailed findings ({anomalies.length})
+            Detailed findings ({kept.length})
           </h2>
-          {anomalies.length === 0 ? (
+          {kept.length === 0 ? (
             <p className="text-c3-regular-body-p3 text-[var(--c3-style-basic-fg-secondary)]">
-              No distinct thermal anomalies were flagged for this image.
+              {dismissedCount > 0
+                ? 'The model kept none of the candidate regions for this image.'
+                : 'No distinct thermal anomalies were flagged for this image.'}
             </p>
           ) : (
             <ol className="flex flex-col gap-4">
-              {anomalies.map((a, i) => (
+              {kept.map((a, i) => (
                 <li key={a.id ?? i} className="rounded-[var(--c3-style-border-radius-6)] border border-[var(--c3-style-basic-border-border)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -259,7 +270,16 @@ export default function ReportDetail() {
               ))}
             </ol>
           )}
+          {dismissedCount > 0 ? (
+            <p className="mt-3 text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+              Dismissed by model: {dismissedCount} candidate region{dismissedCount === 1 ? '' : 's'} judged not to be{' '}
+              {dismissedCount === 1 ? 'a building surface' : 'building surfaces'} (open sky, vegetation, reflections).
+            </p>
+          ) : null}
         </div>
+
+        {/* Engineer C's section — a null stub until merge */}
+        <NextSteps anomalies={anomalies} inspectionId={inspection.id} />
 
         {inspection.notes ? (
           <div>

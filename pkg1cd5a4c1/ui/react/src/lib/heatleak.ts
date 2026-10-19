@@ -48,6 +48,8 @@ export interface ThermalAnomaly {
   /** 'cv' (or absent/'auto') = pixel scout; 'vision' = added by the model; 'manual' = drawn by the inspector. */
   source?: 'auto' | 'manual' | 'cv' | 'vision';
   inspectorNote?: string;
+  /** Owning inspection — populated only when fetched with `inspection.id` (triage-queue join). */
+  inspection?: { id: string };
 }
 
 export interface ThermalInspection {
@@ -474,8 +476,45 @@ export interface AnalyzePayload {
   gridH: number;
 }
 
-/** Human wording for an explanationSource, used by badges and the report line. */
-export function explanationSourceLabel(source?: ExplanationSource): string {
+/* ---- D ---- */
+
+/*
+ * Engineer D — triage queue, light fetches, report integration. Add-only block.
+ *
+ * Contract (§4) fields (`ThermalAnomaly.rejected / rejectionReason / source`,
+ * `ThermalInspection.explanationSource`) are B's to add to the interfaces above.
+ * Until merge they are typed as optional by `src/types/heatleak-contract.d.ts`
+ * (a module augmentation — re-declaring the exported interfaces here trips the
+ * `import/export` lint rule). Nothing in this block depends on provisioning.
+ */
+
+/** Every field a list row or the triage queue needs — and no base64 image. */
+const INSPECTION_LIGHT =
+  'id, name, building.id, building.name, buildingName, buildingType, inspectionDate, status, priority, anomalyCount, analyzed, isDemo, explanationSource';
+
+/** `fetchInspections` without `originalImage` / `annotatedImage`, for pages that render no thumbnails. */
+export async function fetchInspectionsLight(filter?: string): Promise<ThermalInspection[]> {
+  const spec: Record<string, unknown> = {
+    include: INSPECTION_LIGHT,
+    limit: 200,
+    order: 'descending(inspectionDate)',
+  };
+  if (filter) spec.filter = filter;
+  const res = (await c3Action('ThermalInspection', 'fetch', spec)) as FetchResponse<ThermalInspection>;
+  return res.objs ?? [];
+}
+
+/** Every anomaly with its owning inspection id, so the triage queue can join on inspection status. */
+export async function fetchAnomaliesWithInspection(): Promise<ThermalAnomaly[]> {
+  const res = (await c3Action('ThermalAnomaly', 'fetch', {
+    include: 'this, inspection.id',
+    limit: 2000,
+  })) as FetchResponse<ThermalAnomaly>;
+  return res.objs ?? [];
+}
+
+/** Badge copy on the Analysis page. Null when the backend recorded no source (pre-merge data). */
+export function explanationSourceLabel(source?: string): string | null {
   switch (source) {
     case 'vision':
       return 'Vision model reviewed this image';
@@ -484,6 +523,27 @@ export function explanationSourceLabel(source?: ExplanationSource): string {
     case 'template':
       return 'Model unavailable — template text';
     default:
-      return '';
+      return null;
   }
+}
+
+/** The same field as one plain sentence under the report title. */
+export function explanationSourceSentence(source?: string): string | null {
+  switch (source) {
+    case 'vision':
+      return 'Analysis: vision model reviewed the full image';
+    case 'text':
+      return 'Analysis: language model over grid and region statistics';
+    case 'template':
+      return 'Analysis: model unavailable, template text';
+    default:
+      return null;
+  }
+}
+
+const PRIORITY_RANK: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+
+/** Sort key for priorities, High → Medium → Low; absent or unknown ranks lowest. */
+export function priorityRank(priority?: string): number {
+  return (priority && PRIORITY_RANK[priority]) || 0;
 }

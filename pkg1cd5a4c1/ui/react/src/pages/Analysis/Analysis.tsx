@@ -101,9 +101,12 @@ export default function Analysis() {
                     <span className="truncate text-c3-bold-body-p2 text-[var(--c3-style-basic-fg-primary)]">
                       {i.buildingName || i.name}
                     </span>
-                    <Badge appearance={statusAppearance(i.status)} variant="soft" size="sm">
-                      {i.status}
-                    </Badge>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Badge appearance={statusAppearance(i.status)} variant="soft" size="sm">
+                        {i.status}
+                      </Badge>
+                      {i.explanationSource ? <span className="hl-tag">{i.explanationSource}</span> : null}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
                     <span>{formatDate(i.inspectionDate)}</span>
