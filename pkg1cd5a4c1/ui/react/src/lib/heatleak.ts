@@ -340,16 +340,20 @@ export async function computeScenario(
   ])) as RepairScenarioResult;
 }
 
-export async function fetchScenarios(): Promise<RepairScenario[]> {
-  const res = (await c3Action('RepairScenario', 'fetch', {
-    include: 'this',
+export async function fetchScenarios(opts?: { inspectionId?: string }): Promise<LinkedRepairScenario[]> {
+  const spec: Record<string, unknown> = {
+    include: 'this, inspection.id',
     limit: 100,
     order: 'descending(meta.created)',
-  })) as FetchResponse<RepairScenario>;
+  };
+  if (opts?.inspectionId) spec.filter = `inspection.id == '${opts.inspectionId}'`;
+  const res = (await c3Action('RepairScenario', 'fetch', spec)) as FetchResponse<LinkedRepairScenario>;
   return res.objs ?? [];
 }
 
-export async function saveScenario(input: Omit<RepairScenario, 'id' | 'meta'>): Promise<RepairScenario> {
+export async function saveScenario(
+  input: Omit<RepairScenario, 'id' | 'meta'> & { inspection?: { id: string } },
+): Promise<RepairScenario> {
   return (await c3CreateAction('RepairScenario', 'create', input)) as RepairScenario;
 }
 
@@ -421,3 +425,11 @@ export function priorityAppearance(priority?: string): Appearance {
 export function needsFollowUp(status?: string): boolean {
   return status === 'Needs Review' || status === 'Under Investigation';
 }
+
+/* ---- C ---- */
+
+/** ThermalAnomaly with the §4 contract fields (B provisions them; optional until merged). */
+export type ReviewedAnomaly = ThermalAnomaly & { rejected?: boolean; rejectionReason?: string };
+
+/** A scenario modelled from an inspection's findings links back to it (RepairScenario.inspection exists). */
+export type LinkedRepairScenario = RepairScenario & { inspection?: { id: string } };
