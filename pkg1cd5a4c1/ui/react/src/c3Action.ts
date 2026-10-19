@@ -50,11 +50,15 @@ const _doAxiosPost = async (url: string, payload: any): Promise<any> => {
     const response: AxiosResponse = await axios.post(url, payload);
     return response.data;
   } catch (error: any) {
-    if (error.response && error.response.data) {
-      throw error.response.data.message;
-    } else {
-      throw error.message;
-    }
+    // Always throw an Error so callers' `e instanceof Error` checks surface the
+    // server's real message instead of a generic fallback.
+    const data = error?.response?.data;
+    const message =
+      (typeof data === 'string' && data) ||
+      data?.message ||
+      error?.message ||
+      `Request to ${url} failed${error?.response?.status ? ` (HTTP ${error.response.status})` : ''}`;
+    throw new Error(String(message));
   };
 };
 

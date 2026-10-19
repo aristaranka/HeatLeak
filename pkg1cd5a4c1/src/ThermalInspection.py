@@ -10,6 +10,7 @@ findings as ThermalAnomaly records and updates the inspection.
 
 import json
 import re
+import uuid
 
 
 def _location_phrase(r, idx):
@@ -39,6 +40,54 @@ def _safe_parse_json(text):
                 return json.loads(t[start:end + 1])
             except Exception:
                 return None
+        return None
+
+
+_SYSTEM_PROMPT = (
+    "You are HeatLeak AI, a cautious building-energy inspection assistant that "
+    "interprets infrared thermal images. You are a SCREENING aid, not a verdict. "
+    "Follow these scientific limits strictly: warm colors alone do not prove heat "
+    "loss; different cameras use different palettes; reflections and emissivity "
+    "affect apparent temperature; without radiometric metadata you cannot state "
+    "absolute temperatures; a thermal anomaly is NOT a confirmed defect. Always "
+    "describe results as preliminary observations requiring verification. Be "
+    "concise, specific, and professional. Never invent image details beyond the "
+    "region descriptions given."
+)
+
+_CATEGORIES = (
+    "Window-frame thermal contrast | Possible thermal bridging | Door-seal "
+    "irregularity | Wall/ceiling temperature pattern | Ambiguous thermal pattern"
+)
+
+
+def _context_line(insp):
+    ctx = []
+    if insp.buildingType:
+        ctx.append("building type: " + str(insp.buildingType))
+    if insp.indoorTempC is not None:
+        ctx.append("indoor temp: {} C".format(insp.indoorTempC))
+    if insp.outdoorTempC is not None:
+        ctx.append("outdoor temp: {} C".format(insp.outdoorTempC))
+    if insp.notes:
+        ctx.append("inspector notes: " + str(insp.notes))
+    if insp.palette and insp.palette != "auto":
+        ctx.append("camera palette: " + str(insp.palette))
+    return ("Context -- " + "; ".join(ctx) + ".") if ctx else ""
+
+
+def _complete_json(system, user, max_tokens):
+    try:
+        client = c3.GenaiCore.Llm.Completion.Client.forConfigKey("default-completions")
+        response = client.completion(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            options={"returnJson": True, "max_tokens": max_tokens},
+        )
+        return _safe_parse_json(response["choices"][0]["message"]["content"])
+    except Exception:
         return None
 
 
@@ -98,28 +147,9 @@ def analyze(this, regionsJson):
         findings = []
     else:
         region_lines = "\n".join(_location_phrase(r, i) for i, r in enumerate(regions))
-        ctx = []
-        if insp.buildingType:
-            ctx.append("building type: " + str(insp.buildingType))
-        if insp.indoorTempC is not None:
-            ctx.append("indoor temp: {} C".format(insp.indoorTempC))
-        if insp.outdoorTempC is not None:
-            ctx.append("outdoor temp: {} C".format(insp.outdoorTempC))
-        if insp.notes:
-            ctx.append("inspector notes: " + str(insp.notes))
-        context_line = ("Context -- " + "; ".join(ctx) + ".") if ctx else ""
+        context_line = _context_line(insp)
 
-        system = (
-            "You are HeatLeak AI, a cautious building-energy inspection assistant that "
-            "interprets infrared thermal images. You are a SCREENING aid, not a verdict. "
-            "Follow these scientific limits strictly: warm colors alone do not prove heat "
-            "loss; different cameras use different palettes; reflections and emissivity "
-            "affect apparent temperature; without radiometric metadata you cannot state "
-            "absolute temperatures; a thermal anomaly is NOT a confirmed defect. Always "
-            "describe results as preliminary observations requiring verification. Be "
-            "concise, specific, and professional. Never invent image details beyond the "
-            "region descriptions given."
-        )
+        system = _SYSTEM_PROMPT
 
         user = (
             "A thermal image was screened and these candidate regions were detected from "
@@ -147,20 +177,7 @@ def analyze(this, regionsJson):
             "Exactly " + str(len(regions)) + " findings. No prose outside the JSON."
         )
 
-        parsed = None
-        try:
-            client = c3.GenaiCore.Llm.Completion.Client.forConfigKey("default-completions")
-            response = client.completion(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                options={"returnJson": True, "max_tokens": 2048},
-            )
-            content = response["choices"][0]["message"]["content"]
-            parsed = _safe_parse_json(content)
-        except Exception:
-            parsed = None
+        parsed = _complete_json(system, user, 2048)
 
         if parsed and parsed.get("findings"):
             findings = parsed["findings"]
@@ -193,7 +210,9 @@ def analyze(this, regionsJson):
             "priority": f.get("priority") or "Low",
         }))
     if to_create:
-        c3.ThermalAnomaly.mergeBatch(to_create)
+        # These anomalies are new (prior ones were removed above). `merge` only
+        # updates existing records, so create-or-replace with upsert instead.
+        c3.ThermalAnomaly.upsertBatch(to_create)
 
     c3.ThermalInspection.make({
         "id": insp.id,
@@ -204,4 +223,108 @@ def analyze(this, regionsJson):
         "analyzed": True,
     }).merge()
 
+    return this.get("this, anomalies.this")
+
+
+def _fetch_anomalies(insp_id, include):
+    res = c3.ThermalAnomaly.fetch(spec={
+        "filter": "inspection.id == '{}'".format(insp_id),
+        "include": include,
+        "order": "ascending(anomalyIndex)",
+        "limit": -1,
+    })
+    return list(res.objs) if res and res.objs else []
+
+
+def interpretRegion(this, regionJson):
+    insp = this.get("this")
+    if insp is None:
+        raise ValueError("ThermalInspection {} not found".format(this.id))
+
+    try:
+        r = json.loads(regionJson) if regionJson else {}
+    except Exception:
+        r = {}
+    if not isinstance(r, dict) or not r.get("wPct") or not r.get("hPct"):
+        raise ValueError("A region with a non-zero width and height is required")
+
+    existing = _fetch_anomalies(insp.id, "id, anomalyIndex")
+    idx = max([a.anomalyIndex for a in existing] + [-1]) + 1
+    note = (r.get("inspectorNote") or "").strip()
+
+    user = (
+        "An inspector manually selected a region of a thermal image for review. "
+        "Pixel measurement of that region found " + _location_phrase(r, idx) + ".\n"
+        + (("Inspector's note on this region: " + note + "\n") if note else "")
+        + _context_line(insp) + "\n\n"
+        "Write ONE cautious finding for this region. If the measured contrast is "
+        "subtle, say the region is not clearly distinct from its surroundings rather "
+        "than inventing a defect. Return STRICT JSON only, shaped as:\n"
+        "{\n"
+        '  "category": "one of: ' + _CATEGORIES + '",\n'
+        '  "observation": "what the image visually shows at this region",\n'
+        '  "possibleCauses": "possible building-related causes",\n'
+        '  "alternativeExplanations": "non-defect explanations (reflection, '
+        'emissivity, palette, draft, sun)",\n'
+        '  "verificationStep": "one concrete recommended next verification step",\n'
+        '  "priority": "Low|Medium|High"\n'
+        "}\n"
+        "No prose outside the JSON."
+    )
+    f = _complete_json(_SYSTEM_PROMPT, user, 1024)
+    if not f or not f.get("observation"):
+        f = _fallback([r])[2][0]
+
+    anomaly = c3.ThermalAnomaly.make({
+        "id": "{}_m{}".format(insp.id, uuid.uuid4().hex[:10]),
+        "inspection": {"id": insp.id},
+        "anomalyIndex": idx,
+        "source": "manual",
+        "inspectorNote": note or None,
+        "category": f.get("category") or "Ambiguous thermal pattern",
+        "polarity": r.get("polarity") or "hot",
+        "xPct": r.get("xPct") or 0,
+        "yPct": r.get("yPct") or 0,
+        "wPct": r.get("wPct") or 0,
+        "hPct": r.get("hPct") or 0,
+        "relativeIntensity": r.get("relativeIntensity") or 0,
+        "areaPct": r.get("areaPct") or 0,
+        "locationLabel": r.get("locationLabel") or "center",
+        "observation": f.get("observation") or "",
+        "possibleCauses": f.get("possibleCauses") or "",
+        "alternativeExplanations": f.get("alternativeExplanations") or "",
+        "verificationStep": f.get("verificationStep") or "",
+        "priority": f.get("priority") or "Low",
+    }).create()
+
+    c3.ThermalInspection.make({
+        "id": insp.id,
+        "anomalyCount": len(existing) + 1,
+        "analyzed": True,
+    }).merge()
+
+    return anomaly.get("this")
+
+
+def removeAnomaly(this, anomalyId):
+    insp = this.get("id")
+    if insp is None:
+        raise ValueError("ThermalInspection {} not found".format(this.id))
+
+    existing = _fetch_anomalies(insp.id, "id, anomalyIndex")
+    target = [a for a in existing if a.id == anomalyId]
+    if not target:
+        raise ValueError("Anomaly {} does not belong to this inspection".format(anomalyId))
+    target[0].remove()
+
+    remaining = [a for a in existing if a.id != anomalyId]
+    renumbered = [
+        c3.ThermalAnomaly.make({"id": a.id, "anomalyIndex": i})
+        for i, a in enumerate(remaining)
+        if a.anomalyIndex != i
+    ]
+    if renumbered:
+        c3.ThermalAnomaly.mergeBatch(renumbered)
+
+    c3.ThermalInspection.make({"id": insp.id, "anomalyCount": len(remaining)}).merge()
     return this.get("this, anomalies.this")

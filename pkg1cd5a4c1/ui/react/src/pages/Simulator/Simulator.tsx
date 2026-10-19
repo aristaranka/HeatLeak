@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ResponsiveContainer,
   BarChart,
@@ -46,8 +47,14 @@ export default function Simulator() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [name, setName] = useState('');
-  const [intervention, setIntervention] = useState<string>(INTERVENTIONS[0]);
+  // Arriving from a finding's "Simulate a repair" link prefills the form.
+  const [params] = useSearchParams();
+  const fromFinding = params.get('name');
+  const requested = params.get('intervention');
+  const [name, setName] = useState(fromFinding ?? '');
+  const [intervention, setIntervention] = useState<string>(
+    requested && INTERVENTIONS.includes(requested) ? requested : INTERVENTIONS[0],
+  );
   const [repairCost, setRepairCost] = useState('450');
   const [savingsKwh, setSavingsKwh] = useState('1200');
   const [price, setPrice] = useState('0.16');
@@ -177,6 +184,12 @@ export default function Simulator() {
             <CardTitle>Add a scenario</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            {fromFinding ? (
+              <p className="rounded-[var(--c3-style-border-radius-4)] bg-[var(--hl-cyan-soft)] p-2 text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-primary)]">
+                Prefilled from <strong>{fromFinding}</strong>. Replace the cost and savings with your own estimates —
+                a thermal image alone cannot tell you how much energy a repair will save.
+              </p>
+            ) : null}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="s-name" className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
                 Scenario name

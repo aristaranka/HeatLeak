@@ -18,7 +18,13 @@ import {
   BuildingType,
   Building,
 } from '@/lib/heatleak';
-import { fileToStoredImage, analyzeThermalImage, LoadedImage } from '@/lib/thermalAnalysis';
+import {
+  fileToStoredImage,
+  analyzeThermalImage,
+  LoadedImage,
+  ThermalPalette,
+  THERMAL_PALETTES,
+} from '@/lib/thermalAnalysis';
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png'];
 
@@ -33,6 +39,7 @@ export default function NewInspection() {
   const [buildingName, setBuildingName] = useState('');
   const [buildingType, setBuildingType] = useState<BuildingType>('Residential');
   const [notes, setNotes] = useState('');
+  const [palette, setPalette] = useState<ThermalPalette>('auto');
   const [indoorTemp, setIndoorTemp] = useState('');
   const [outdoorTemp, setOutdoorTemp] = useState('');
 
@@ -73,12 +80,15 @@ export default function NewInspection() {
     if (!image) return;
     setBusy(true);
     setError(null);
+    let step = 'Analyzing image pixels';
     try {
       setBusyLabel('Analyzing image pixels…');
-      const analysis = await analyzeThermalImage(image);
+      const analysis = await analyzeThermalImage(image, palette);
 
+      step = 'Saving building';
       setBusyLabel('Saving inspection…');
       const building = await ensureBuilding(buildingName.trim(), buildingType);
+      step = 'Saving inspection';
       const inspection = await createInspection({
         name: `${buildingName.trim()} — thermal inspection`,
         buildingId: building.id,
@@ -89,16 +99,20 @@ export default function NewInspection() {
         outdoorTempC: outdoorTemp ? Number(outdoorTemp) : undefined,
         originalImage: image.dataUrl,
         annotatedImage: analysis.annotatedDataUrl,
+        palette,
         imageWidth: analysis.width,
         imageHeight: analysis.height,
       });
 
+      step = 'Generating AI explanations';
       setBusyLabel('Generating AI explanations…');
       await analyzeInspection(inspection.id, JSON.stringify(analysis.regions));
 
       navigate(`/analysis/${inspection.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong during analysis.');
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+      console.error(`[HeatLeak] ${step} failed`, e);
+      setError(`${step} failed${detail ? `: ${detail}` : '.'}`);
       setBusy(false);
       setBusyLabel('');
     }
@@ -218,6 +232,22 @@ export default function NewInspection() {
                 onValueChange={(v) => v && setBuildingType(v as BuildingType)}
                 options={BUILDING_TYPES.map((t) => ({ value: t, label: t }))}
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="palette" className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                Camera color palette
+              </label>
+              <Combobox
+                id="palette"
+                value={palette}
+                onValueChange={(v) => v && setPalette(v as ThermalPalette)}
+                options={THERMAL_PALETTES.map((p) => ({ value: p.value, label: p.label }))}
+              />
+              <span className="text-c3-regular-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
+                {THERMAL_PALETTES.find((p) => p.value === palette)?.hint} Palettes differ between cameras, so pick the
+                one your scale bar shows.
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
