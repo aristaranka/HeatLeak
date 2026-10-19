@@ -95,4 +95,22 @@ entity type ThermalAnomaly schema name 'HL_ANOMALY' {
    * Qualitative priority for following up this finding: 'Low', 'Medium', or 'High'.
    */
   priority: !string
+
+  /**
+   * True when the model judged this candidate is not a building-envelope pattern
+   * (sky, vegetation, a reflection, …). The box is kept so the UI can show it greyed.
+   */
+  rejected: boolean
+
+  /**
+   * One sentence from the model naming what the rejected region actually is, e.g.
+   * 'Open sky above the roofline, not a building surface.'
+   */
+  rejectionReason: string
+
+  /**
+   * Who proposed this region: 'cv' = the client pixel scout, 'vision' = added by
+   * the model after reviewing the image.
+   */
+  source: string
 }

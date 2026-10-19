@@ -42,6 +42,9 @@ export interface ThermalAnomaly {
   alternativeExplanations: string;
   verificationStep: string;
   priority: Priority;
+  rejected?: boolean;
+  rejectionReason?: string;
+  source?: 'cv' | 'vision';
 }
 
 export interface ThermalInspection {
@@ -64,6 +67,7 @@ export interface ThermalInspection {
   anomalyCount?: number;
   analyzed?: boolean;
   isDemo?: boolean;
+  explanationSource?: 'vision' | 'text' | 'template';
   anomalies?: ThermalAnomaly[];
   meta?: Meta;
 }
@@ -345,4 +349,55 @@ export function priorityAppearance(priority?: string): Appearance {
 /** Does a status count as still needing follow-up? */
 export function needsFollowUp(status?: string): boolean {
   return status === 'Needs Review' || status === 'Under Investigation';
+}
+
+/* ---- B ---- */
+
+/** What produced an inspection's finding text (see ThermalInspection.explanationSource). */
+export type ExplanationSource = 'vision' | 'text' | 'template';
+
+/** One scout-proposed region as sent to ThermalInspection.analyze. */
+export interface AnalyzeRegion {
+  /** Bounding box as fractions 0..1 of the stored image. */
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+  polarity: 'hot' | 'cold';
+  /** Signed, roughly -1..1. */
+  relativeIntensity: number;
+  /** Fraction of the frame. */
+  areaPct: number;
+  /** 'upper-left' | 'center' | ... */
+  locationLabel: string;
+  /** data:image/jpeg;base64,... with at most 256px on the long side. */
+  crop?: string;
+}
+
+/**
+ * The object the client passes (JSON-stringified) to analyzeInspection. The
+ * backend also accepts the legacy bare AnalyzeRegion[] array.
+ */
+export interface AnalyzePayload {
+  regions: AnalyzeRegion[];
+  /** Rows of digits 0-9, one row per line, top row first; 0 = coolest, 9 = warmest apparent. */
+  gridText: string;
+  /** 24 */
+  gridW: number;
+  /** round(24 * height / width), clamped 8..24 */
+  gridH: number;
+}
+
+/** Human wording for an explanationSource, used by badges and the report line. */
+export function explanationSourceLabel(source?: ExplanationSource): string {
+  switch (source) {
+    case 'vision':
+      return 'Vision model reviewed this image';
+    case 'text':
+      return 'Text model — grid and region statistics only';
+    case 'template':
+      return 'Model unavailable — template text';
+    default:
+      return '';
+  }
 }
