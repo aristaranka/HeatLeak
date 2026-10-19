@@ -1,0 +1,38 @@
+[
+  {
+    "file": "house-gable-windows.jpg",
+    "title": "Detached house, gable end and dormers, winter evening",
+    "buildingName": "Sample — Detached house, gable end",
+    "buildingType": "Residential",
+    "credit": "BuLService",
+    "license": "CC BY-SA 3.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Thermografie_Giebelseite.jpg"
+  },
+  {
+    "file": "balcony-slab-thermal-bridge.jpg",
+    "title": "Apartment block, cantilevered balcony slab",
+    "buildingName": "Sample — Apartment block, balcony slab",
+    "buildingType": "Residential",
+    "credit": "Janrekoort",
+    "license": "CC BY-SA 4.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Termopilt_n%C3%A4itab_soojuskadu.jpg"
+  },
+  {
+    "file": "house-uninsulated-wall.jpg",
+    "title": "Two-storey house, uninsulated exterior wall",
+    "buildingName": "Sample — Two-storey house, uninsulated wall",
+    "buildingType": "Residential",
+    "credit": "Lutz Weidner",
+    "license": "CC BY-SA 3.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Ungedaemmte_Aussenwand.jpg"
+  },
+  {
+    "file": "passivhaus-vs-uninsulated.jpg",
+    "title": "Passive house beside a conventional building",
+    "buildingName": "Sample — Passive house and neighbour",
+    "buildingType": "Residential",
+    "credit": "Passivhaus Institut",
+    "license": "CC BY-SA 3.0",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Passivhaus_thermogram_gedaemmt_ungedaemmt.png"
+  }
+]

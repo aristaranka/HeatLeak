@@ -14,7 +14,7 @@
  * be established. These are screening observations, not confirmed defects.
  *
  * Tuning (checked on a synthetic ironbow scene only; re-tune on the real samples): detection grid
- * 56 wide, thresholds [1.25, 1.0, 0.8], bbox area cap 30% with re-test at T+0.75 then T+1.5, then
+ * 56 wide, thresholds [1.25, 1.0, 0.8, 0.65] until 3+ regions, bbox area cap 30% with re-test at T+0.75 then T+1.5, then
  * drop, same-polarity IoU merge > 0.3, MAX_REGIONS 6, palette ramps sampled to 32 stops.
  */
 
@@ -65,6 +65,7 @@ export interface AnnotationBox {
 
 const MAX_STORE_DIM = 1100;
 const MAX_REGIONS = 6;
+const MIN_WANTED_REGIONS = 3;
 const MAX_AREA_FRAC = 0.3;
 const MERGE_IOU = 0.3;
 const GRID_W = 24;
@@ -464,12 +465,13 @@ export async function analyzeThermalImage(
 
   const minCells = Math.max(4, Math.round(0.004 * GW * GH));
 
-  // Try decreasing thresholds until we find at least one region (or give up).
-  const thresholds = [1.25, 1.0, 0.8];
+  // Lower the threshold until at least MIN_WANTED_REGIONS turn up (a scale bar can dominate the z-score).
+  const thresholds = [1.25, 1.0, 0.8, 0.65];
   let regions: DetectedRegion[] = [];
   for (const T of thresholds) {
-    regions = findRegions(zAt, GW, GH, T, minCells);
-    if (regions.length > 0) break;
+    const found = findRegions(zAt, GW, GH, T, minCells);
+    if (found.length > regions.length) regions = found;
+    if (regions.length >= MIN_WANTED_REGIONS) break;
   }
   regions = regions.map((r) => ({ ...r, crop: cropRegion(img, r) }));
 
