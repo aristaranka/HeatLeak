@@ -310,8 +310,7 @@ export default function Simulator() {
           </p>
         ) : null}
         <p className="mt-1 text-c3-regular-body-p2 text-[var(--c3-style-basic-fg-secondary)]">
-          Hypothetical scenarios from your assumptions and published typical ranges. Nothing here is measured from a
-          thermal image.
+          Scenarios from your assumptions and published typical ranges.
         </p>
       </div>
 

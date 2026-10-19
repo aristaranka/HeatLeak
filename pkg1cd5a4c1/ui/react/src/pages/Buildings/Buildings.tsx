@@ -42,7 +42,7 @@ export default function Buildings() {
   const load = () => {
     setLoading(true);
     fetchBuildings()
-      .then(setBuildings)
+      .then((list) => setBuildings(list.filter((b) => !b.isDemo)))
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load buildings.'))
       .finally(() => setLoading(false));
   };
@@ -90,8 +90,7 @@ export default function Buildings() {
         <div>
           <h1 className="text-c3-bold-heading-h4 text-[var(--c3-style-basic-fg-primary)]">Buildings</h1>
           <p className="mt-1 text-c3-regular-body-p2 text-[var(--c3-style-basic-fg-secondary)]">
-            Track the buildings you inspect and their open thermal findings. Sample buildings are fictional and clearly
-            labeled.
+            Track the buildings you inspect and their open thermal findings.
           </p>
         </div>
         <Button leadingIcon={<Plus className="size-4" />} onClick={() => setOpen(true)}>
@@ -109,7 +108,7 @@ export default function Buildings() {
         <Card className="items-center gap-3 py-12 text-center">
           <Building2 className="size-8 text-[var(--hl-cyan)]" aria-hidden />
           <p className="text-c3-regular-body-p2 text-[var(--c3-style-basic-fg-secondary)]">
-            No buildings yet. Add one, or load the demo data from the Overview page.
+            No buildings yet. Add one, or start a new inspection.
           </p>
         </Card>
       ) : (
