@@ -210,7 +210,7 @@ export default function NewInspection() {
           {samples.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-c3-bold-label-l3 text-[var(--c3-style-basic-fg-secondary)]">
-                Try a sample thermal image
+                Open a thermal image
               </span>
               {samples.map((s) => (
                 <Button

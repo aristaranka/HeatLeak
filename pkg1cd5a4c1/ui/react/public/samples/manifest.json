@@ -2,7 +2,7 @@
   {
     "file": "interior-ceiling-missing-insulation.jpg",
     "title": "Living-room ceiling, missing insulation and a chandelier",
-    "buildingName": "Sample — Interior, living-room ceiling",
+    "buildingName": "Interior, living-room ceiling",
     "buildingType": "Residential",
     "credit": "Edward Louie, PNNL",
     "license": "Courtesy of U.S. DOE Building America Solution Center",
@@ -11,7 +11,7 @@
   {
     "file": "house-gable-windows.jpg",
     "title": "Detached house, gable end and dormers, winter evening",
-    "buildingName": "Sample — Detached house, gable end",
+    "buildingName": "Detached house, gable end",
     "buildingType": "Residential",
     "credit": "BuLService",
     "license": "CC BY-SA 3.0",
@@ -20,7 +20,7 @@
   {
     "file": "interior-exterior-door-seal.jpg",
     "title": "Exterior door from inside, cold perimeter and threshold",
-    "buildingName": "Sample — Interior, entry door",
+    "buildingName": "Interior, entry door",
     "buildingType": "Residential",
     "credit": "Edward Louie, PNNL",
     "license": "Courtesy of U.S. DOE Building America Solution Center",
@@ -29,7 +29,7 @@
   {
     "file": "interior-window-sill-leak.jpg",
     "title": "Single-hung window from inside, cold meeting rail and sill",
-    "buildingName": "Sample — Interior, window",
+    "buildingName": "Interior, window",
     "buildingType": "Residential",
     "credit": "Edward Louie, PNNL",
     "license": "Courtesy of U.S. DOE Building America Solution Center",
@@ -38,7 +38,7 @@
   {
     "file": "balcony-slab-thermal-bridge.jpg",
     "title": "Apartment block, cantilevered balcony slab",
-    "buildingName": "Sample — Apartment block, balcony slab",
+    "buildingName": "Apartment block, balcony slab",
     "buildingType": "Residential",
     "credit": "Janrekoort",
     "license": "CC BY-SA 4.0",
