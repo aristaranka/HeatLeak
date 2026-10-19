@@ -97,6 +97,46 @@
   background: var(--hl-cool);
 }
 
+/*
+ * Candidate the model dismissed. The box stays on the image for display but reads
+ * as inert: dashed secondary outline, no fill, "×" label. It takes pointer events
+ * only while the "Dismissed by model" group is expanded (.hl-box-rejected-live).
+ */
+.hl-box-rejected {
+  border-style: dashed;
+  border-color: var(--c3-style-basic-fg-secondary);
+  background-color: transparent;
+  pointer-events: none;
+  cursor: default;
+}
+.hl-box-rejected.hl-box-rejected-live {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hl-box-label-rejected {
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--c3-style-basic-fg-secondary);
+  border: 1px dashed var(--c3-style-basic-fg-secondary);
+}
+
+/* Region the vision model added (source === 'vision'): today's warm/cool colours, dashed. */
+.hl-box-vision {
+  border-style: dashed;
+}
+
+/* 10px metadata tag — explanation source on list rows, "found by model" on findings. */
+.hl-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--c3-style-basic-border-border);
+  color: var(--c3-style-basic-fg-secondary);
+  white-space: nowrap;
+}
+
 /* Print: isolate the report */
 @media print {
   .hl-no-print {
@@ -108,5 +148,35 @@
   }
   body {
     background: #ffffff !important;
+  }
+  /*
+   * The app shell is a fixed-height, inner-scrolling layout (h-screen → main.overflow-auto),
+   * which prints as a single clipped page. Let the document grow and drop the chrome so
+   * the report paginates with nothing cut.
+   */
+  html,
+  body,
+  #root,
+  .h-screen,
+  main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .overflow-hidden,
+  .overflow-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+  header,
+  nav {
+    display: none !important;
+  }
+  .hl-print-full figure,
+  .hl-print-full img,
+  .hl-print-full li,
+  .hl-print-full table {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

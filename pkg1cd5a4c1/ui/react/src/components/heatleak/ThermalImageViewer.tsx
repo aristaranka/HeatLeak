@@ -8,6 +8,10 @@ export interface ViewerBox {
   wPct: number;
   hPct: number;
   polarity: 'hot' | 'cold';
+  /** Dismissed by the model: drawn greyed for display, interactive only when `showRejected`. */
+  rejected?: boolean;
+  /** 'vision' = added by the model (dashed border); 'cv' or absent = proposed by the pixel scout. */
+  source?: 'cv' | 'vision';
 }
 
 interface ThermalImageViewerProps {
@@ -20,6 +24,8 @@ interface ThermalImageViewerProps {
   onActiveChange?: (index: number | null) => void;
   /** Show the before/after comparison slider tab. */
   enableCompare?: boolean;
+  /** Let dismissed boxes take pointer events — true while the list's dismissed group is expanded. */
+  showRejected?: boolean;
   className?: string;
 }
 
@@ -31,9 +37,11 @@ type Mode = 'interactive' | 'compare';
  * In "interactive" mode it renders the ACTUAL image with DOM bounding boxes laid
  * over it (positioned by percentage so they track any container size); hovering
  * or clicking a box selects the matching anomaly, and the externally-controlled
- * `activeIndex` highlights one. In "compare" mode a draggable slider wipes
- * between the original and the annotated render. Boxes come from real detected
- * regions — the viewer never invents them.
+ * `activeIndex` highlights one. Boxes the model dismissed stay visible as inert
+ * dashed outlines and only become selectable while `showRejected` is set. In
+ * "compare" mode a draggable slider wipes between the original and the annotated
+ * render. Boxes come from real detected regions or the model — the viewer never
+ * invents them.
  */
 export default function ThermalImageViewer({
   originalImage,
@@ -42,6 +50,7 @@ export default function ThermalImageViewer({
   activeIndex,
   onActiveChange,
   enableCompare = true,
+  showRejected = false,
   className,
 }: ThermalImageViewerProps) {
   const [mode, setMode] = useState<Mode>('interactive');
@@ -96,6 +105,32 @@ export default function ThermalImageViewer({
           <div className="absolute inset-0">
             {boxes.map((b, i) => {
               const active = activeIndex === i;
+              const position = {
+                left: `${b.xPct * 100}%`,
+                top: `${b.yPct * 100}%`,
+                width: `${b.wPct * 100}%`,
+                height: `${b.hPct * 100}%`,
+              };
+              if (b.rejected) {
+                return (
+                  <button
+                    type="button"
+                    key={i}
+                    aria-label={`Dismissed candidate ${i + 1}`}
+                    tabIndex={showRejected ? 0 : -1}
+                    onClick={() => onActiveChange?.(active ? null : i)}
+                    onMouseEnter={() => onActiveChange?.(i)}
+                    className={cn(
+                      'hl-box hl-box-rejected',
+                      showRejected && 'hl-box-rejected-live',
+                      active && 'hl-box-active',
+                    )}
+                    style={position}
+                  >
+                    <span className="hl-box-label hl-box-label-rejected">×</span>
+                  </button>
+                );
+              }
               return (
                 <button
                   type="button"
@@ -106,14 +141,10 @@ export default function ThermalImageViewer({
                   className={cn(
                     'hl-box',
                     b.polarity === 'hot' ? 'hl-box-hot' : 'hl-box-cold',
+                    b.source === 'vision' && 'hl-box-vision',
                     active && 'hl-box-active',
                   )}
-                  style={{
-                    left: `${b.xPct * 100}%`,
-                    top: `${b.yPct * 100}%`,
-                    width: `${b.wPct * 100}%`,
-                    height: `${b.hPct * 100}%`,
-                  }}
+                  style={position}
                 >
                   <span className={cn('hl-box-label', b.polarity === 'hot' ? 'hl-box-label-hot' : 'hl-box-label-cold')}>
                     {i + 1}
